@@ -783,6 +783,117 @@ function extractRoute(url: URL): string {
   return path.slice(idx + marker.length).replace(/\/+$/, '')
 }
 
+// ──────────────────────────────── GPS 定位 ────────────────────────────────
+
+/**
+ * GPS 反向地理编码 + 天气查询
+ * GET /weather/gps?lat=39.9&lon=116.4               — 返回位置 + 天气
+ * GET /weather/gps?lat=39.9&lon=116.4&weather=false  — 仅返回位置信息
+ */
+async function handleGps(url: URL): Promise<Response> {
+  const latParam = url.searchParams.get('lat')
+  const lonParam = url.searchParams.get('lon')
+  const skipWeather = url.searchParams.get('weather') === 'false'
+
+  if (!latParam || !lonParam) {
+    return errorResponse('缺少必填参数：lat 和 lon。示例：/weather/gps?lat=39.9&lon=116.4', 400)
+  }
+
+  const lat = parseFloat(latParam)
+  const lon = parseFloat(lonParam)
+
+  if (isNaN(lat) || isNaN(lon)) {
+    return errorResponse('lat 和 lon 必须是有效的数字', 400)
+  }
+
+  if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+    return errorResponse('lat 范围 -90~90，lon 范围 -180~180', 400)
+  }
+
+  try {
+    // 反向地理编码：GPS → 地址
+    let cityName = '未知位置'
+    let regionName = ''
+    let countryName = ''
+    let countryCode = ''
+    let locality = ''
+    let continent = ''
+    let reverseGeoProvider = 'bigdatacloud'
+
+    try {
+      const geoResp = await fetch(
+        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=zh`
+      )
+      if (geoResp.ok) {
+        const geoData = (await geoResp.json()) as any
+        cityName = geoData.city || geoData.locality || geoData.principalSubdivision || '未知位置'
+        regionName = geoData.principalSubdivision || ''
+        countryName = geoData.countryName || ''
+        countryCode = geoData.countryCode || ''
+        locality = geoData.locality || geoData.city || ''
+        continent = geoData.continent || ''
+      }
+    } catch (e) {
+      console.error('Reverse geocoding failed:', e)
+      reverseGeoProvider = 'raw'
+    }
+
+    const location: GeoLocation = {
+      ip: 'gps',
+      city: cityName,
+      region: regionName,
+      country: countryName,
+      countryCode,
+      latitude: lat,
+      longitude: lon,
+      timezone: 'auto',
+      provider: 'gps',
+    }
+
+    const result: any = {
+      success: true,
+      coordinates: {
+        latitude: lat,
+        longitude: lon,
+      },
+      location: {
+        city: cityName,
+        locality,
+        region: regionName,
+        country: countryName,
+        countryCode,
+        continent,
+      },
+      reverseGeoProvider,
+      timestamp: new Date().toISOString(),
+    }
+
+    // 如果未跳过天气，附加热门天气数据
+    if (!skipWeather) {
+      try {
+        const { current, hourly, daily } = await fetchWeather(lat, lon, 'auto')
+        result.weather = { current, hourly, daily }
+        result.units = {
+          temperature: '°C',
+          windSpeed: 'km/h',
+          precipitation: 'mm',
+          pressure: 'hPa',
+          visibility: 'meters',
+          humidity: '%',
+        }
+      } catch (e) {
+        console.error('Weather fetch failed for GPS:', e)
+        result.weather = null
+        result.weatherError = '天气数据获取失败'
+      }
+    }
+
+    return jsonResponse(result)
+  } catch (error: any) {
+    return errorResponse(error.message || 'GPS 定位失败', 500)
+  }
+}
+
 // ──────────────────────────────── 主处理函数 ────────────────────────────────
 
 export async function handleWeather(
@@ -800,6 +911,9 @@ export async function handleWeather(
   switch (route) {
     case 'query':
       return await handleQuery(request, url)
+
+    case 'gps':
+      return await handleGps(url)
 
     case 'location':
       return await handleLocation(request, url)

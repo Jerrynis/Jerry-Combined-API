@@ -458,7 +458,7 @@ export function weatherDocPage(): string {
     <div class="page-header">
       <a class="back-link" href="/">&larr; 返回首页</a>
       <h1>🌤️ 天气 & 位置 API</h1>
-      <p class="subtitle">基于 Open-Meteo 的天气查询服务，支持城市名、坐标、IP 定位</p>
+      <p class="subtitle">基于 Open-Meteo 的天气查询服务，支持城市名、坐标、GPS、IP 定位</p>
     </div>
 
     <div class="section">
@@ -467,8 +467,24 @@ export function weatherDocPage(): string {
         <thead><tr><th>方法</th><th>路径</th><th>说明</th></tr></thead>
         <tbody>
           <tr><td>${badge('GET')}</td><td><code>/weather/query</code></td><td>天气查询（支持城市名/坐标/IP）</td></tr>
+          <tr><td>${badge('GET')}</td><td><code>/weather/gps</code></td><td>GPS 反向地理编码 + 天气查询</td></tr>
           <tr><td>${badge('GET')}</td><td><code>/weather/location</code></td><td>IP 地理定位调试</td></tr>
           <tr><td>${badge('GET')}</td><td><code>/weather/health</code></td><td>健康检查</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">GPS 定位端点 (/weather/gps)</h2>
+      <p style="color: var(--text-2); font-size: 0.9rem; margin-bottom: 0.75rem;">
+        将浏览器 GPS 坐标反向解析为实际地址，并返回当地天气。适用于需要精确城市定位的场景。
+      </p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>参数</th><th>类型</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td><code>lat</code></td><td>number</td><td>✅ 是</td><td>纬度（-90 ~ 90）</td></tr>
+          <tr><td><code>lon</code></td><td>number</td><td>✅ 是</td><td>经度（-180 ~ 180）</td></tr>
+          <tr><td><code>weather</code></td><td>string</td><td>否</td><td>设为 false 仅返回位置，不返回天气</td></tr>
         </tbody>
       </table></div>
     </div>
@@ -495,19 +511,27 @@ export function weatherDocPage(): string {
       ${codeBlock('GET /weather/query?lat=39.9&lon=116.4', '按坐标查询')}
       ${codeBlock('GET /weather/query?ip=8.8.8.8', '按 IP 查询')}
       ${codeBlock('GET /weather/query', '自动检测 IP')}
+      ${codeBlock('GET /weather/gps?lat=39.9&lon=116.4', 'GPS 反向定位 + 天气')}
+      ${codeBlock('GET /weather/gps?lat=39.9&lon=116.4&weather=false', 'GPS 仅定位')}
       ${codeBlock('GET /weather/location', 'IP 定位调试')}
     </div>
 
     <div class="section">
-      <h2 class="section-title">响应结构</h2>
+      <h2 class="section-title">GPS 响应结构</h2>
+      ${codeBlock('{\n  "success": true,\n  "coordinates": { "latitude": 39.9, "longitude": 116.4 },\n  "location": {\n    "city": "北京",\n    "locality": "北京",\n    "region": "北京市",\n    "country": "China",\n    "countryCode": "CN",\n    "continent": "Asia"\n  },\n  "reverseGeoProvider": "bigdatacloud",\n  "weather": {\n    "current": { "temperature": 25.3, "weatherDescriptionZh": "晴天", ... },\n    "hourly": [ ... 48小时逐时预报 ... ],\n    "daily": [ ... 7天每日预报 ... ]\n  },\n  "units": { "temperature": "°C", ... },\n  "timestamp": "2026-08-12T10:00:00Z"\n}', '/weather/gps 响应')}
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">/weather/query 响应结构</h2>
       ${codeBlock('{\n  "success": true,\n  "location": {\n    "city": "北京",\n    "country": "China",\n    "latitude": 39.90,\n    "longitude": 116.40,\n    "timezone": "Asia/Shanghai"\n  },\n  "current": {\n    "temperature": 25.3,\n    "weatherDescriptionZh": "晴天",\n    "humidity": 45,\n    "windSpeed": 12.5,\n    "uvIndex": 6.2\n  },\n  "hourly": [ ... 48小时逐时预报 ... ],\n  "daily": [ ... 7天每日预报 ... ],\n  "fetchedAt": "2026-08-12T10:00:00Z",\n  "units": { "temperature": "°C", "windSpeed": "km/h", ... }\n}', '/weather/query 响应')}
     </div>
 
     ${infoBox('详细信息', [
       '天气数据源：Open-Meteo (免费、无需 API Key)',
       '地理编码：Open-Meteo Geocoding API',
-      '反向地理：BigDataCloud',
+      '反向地理：BigDataCloud（GPS→地址，支持中文）',
       'IP 定位回退链：Cloudflare cf → ipinfo.io → ipwho.is',
+      'GPS 定位：/weather/gps 接收浏览器坐标，反向解析为城市名',
       '缓存策略：5 分钟内存缓存',
       '预报范围：当前天气 + 48 小时逐时 + 7 天每日',
       'WMO 天气代码：双语描述（中/英）',
@@ -515,6 +539,7 @@ export function weatherDocPage(): string {
 
     <div style="margin-top: 1.5rem; display: flex; gap: 1rem; flex-wrap: wrap;">
       <a class="try-btn" href="/weather/query?city=北京" target="_blank">试一试 /weather/query →</a>
+      <a class="try-btn" href="/weather/gps?lat=39.9&lon=116.4" target="_blank">试一试 /weather/gps →</a>
       <a class="try-btn" href="/weather/health" target="_blank">健康检查 →</a>
     </div>
   `
