@@ -786,6 +786,95 @@ function extractRoute(url: URL): string {
 // ──────────────────────────────── GPS 定位 ────────────────────────────────
 
 /**
+ * 反向地理编码结果
+ */
+interface ReverseGeoResult {
+  city: string
+  locality: string
+  region: string
+  country: string
+  countryCode: string
+  continent: string
+  provider: string
+}
+
+/**
+ * 反向地理编码：GPS → 地址
+ * 使用多重回退策略确保可靠性：
+ *   1. BigDataCloud（免费、支持中文）
+ *   2. Nominatim / OpenStreetMap（免费、全球覆盖）
+ *   3. 降级为坐标字符串
+ */
+async function reverseGeocode(lat: number, lon: number): Promise<ReverseGeoResult> {
+  // 回退 1: BigDataCloud
+  try {
+    const resp = await fetch(
+      `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=zh`,
+      { signal: AbortSignal.timeout(5000) }
+    )
+    if (resp.ok) {
+      const data = (await resp.json()) as any
+      if (data.city || data.locality || data.principalSubdivision) {
+        return {
+          city: data.city || data.locality || data.principalSubdivision || '',
+          locality: data.locality || data.city || '',
+          region: data.principalSubdivision || '',
+          country: data.countryName || '',
+          countryCode: data.countryCode || '',
+          continent: data.continent || '',
+          provider: 'bigdatacloud',
+        }
+      }
+    }
+  } catch (e) {
+    console.error('BigDataCloud reverse geocode failed:', e)
+  }
+
+  // 回退 2: Nominatim (OpenStreetMap)
+  try {
+    const resp = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&accept-language=zh`,
+      {
+        signal: AbortSignal.timeout(5000),
+        headers: {
+          'User-Agent': 'JerryCombinedAPI/1.0 (Cloudflare Workers)',
+          'Accept': 'application/json',
+        },
+      }
+    )
+    if (resp.ok) {
+      const data = (await resp.json()) as any
+      if (data.address) {
+        const addr = data.address
+        const city = addr.city || addr.town || addr.village || addr.county || addr.state || addr.province || ''
+        return {
+          city: city || addr.state || addr.province || '',
+          locality: addr.city || addr.town || addr.village || addr.county || '',
+          region: addr.state || addr.province || '',
+          country: addr.country || '',
+          countryCode: (addr.country_code || '').toUpperCase(),
+          continent: '',
+          provider: 'nominatim',
+        }
+      }
+    }
+  } catch (e) {
+    console.error('Nominatim reverse geocode failed:', e)
+  }
+
+  // 降级: 返回坐标字符串
+  return {
+    city: `${lat.toFixed(4)}, ${lon.toFixed(4)}`,
+    locality: '',
+    region: '',
+    country: '',
+    countryCode: '',
+    continent: '',
+    provider: 'coordinates',
+  }
+}
+
+/**
  * GPS 反向地理编码 + 天气查询
  * GET /weather/gps?lat=39.9&lon=116.4               — 返回位置 + 天气
  * GET /weather/gps?lat=39.9&lon=116.4&weather=false  — 仅返回位置信息
@@ -811,39 +900,15 @@ async function handleGps(url: URL): Promise<Response> {
   }
 
   try {
-    // 反向地理编码：GPS → 地址
-    let cityName = '未知位置'
-    let regionName = ''
-    let countryName = ''
-    let countryCode = ''
-    let locality = ''
-    let continent = ''
-    let reverseGeoProvider = 'bigdatacloud'
-
-    try {
-      const geoResp = await fetch(
-        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=zh`
-      )
-      if (geoResp.ok) {
-        const geoData = (await geoResp.json()) as any
-        cityName = geoData.city || geoData.locality || geoData.principalSubdivision || '未知位置'
-        regionName = geoData.principalSubdivision || ''
-        countryName = geoData.countryName || ''
-        countryCode = geoData.countryCode || ''
-        locality = geoData.locality || geoData.city || ''
-        continent = geoData.continent || ''
-      }
-    } catch (e) {
-      console.error('Reverse geocoding failed:', e)
-      reverseGeoProvider = 'raw'
-    }
+    // 反向地理编码：GPS → 地址（多重回退）
+    const geo = await reverseGeocode(lat, lon)
 
     const location: GeoLocation = {
       ip: 'gps',
-      city: cityName,
-      region: regionName,
-      country: countryName,
-      countryCode,
+      city: geo.city,
+      region: geo.region,
+      country: geo.country,
+      countryCode: geo.countryCode,
       latitude: lat,
       longitude: lon,
       timezone: 'auto',
@@ -857,14 +922,14 @@ async function handleGps(url: URL): Promise<Response> {
         longitude: lon,
       },
       location: {
-        city: cityName,
-        locality,
-        region: regionName,
-        country: countryName,
-        countryCode,
-        continent,
+        city: geo.city,
+        locality: geo.locality,
+        region: geo.region,
+        country: geo.country,
+        countryCode: geo.countryCode,
+        continent: geo.continent,
       },
-      reverseGeoProvider,
+      reverseGeoProvider: geo.provider,
       timestamp: new Date().toISOString(),
     }
 

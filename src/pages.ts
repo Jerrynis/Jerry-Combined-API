@@ -529,7 +529,7 @@ export function weatherDocPage(): string {
     ${infoBox('详细信息', [
       '天气数据源：Open-Meteo (免费、无需 API Key)',
       '地理编码：Open-Meteo Geocoding API',
-      '反向地理：BigDataCloud（GPS→地址，支持中文）',
+      '反向地理：BigDataCloud → Nominatim/OSM → 坐标（三重回退，可靠性高）',
       'IP 定位回退链：Cloudflare cf → ipinfo.io → ipwho.is',
       'GPS 定位：/weather/gps 接收浏览器坐标，反向解析为城市名',
       '缓存策略：5 分钟内存缓存',
