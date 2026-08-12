@@ -1,0 +1,17 @@
+{
+  "name": "jerry-combined-api",
+  "version": "1.0.0",
+  "description": "整合 BA 随机图、每日热搜、网易云音乐、天气位置的 Cloudflare Workers API",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240620.0",
+    "@types/node": "^26.2.0",
+    "typescript": "^5.4.0",
+    "wrangler": "^3.60.0"
+  }
+}
