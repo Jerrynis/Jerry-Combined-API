@@ -172,11 +172,30 @@ interface MatchIDResult {
 
 /**
  * Get full song URL from multiple sources (tries each source in order)
+ * Mirrors api-enhanced's matchID(id, source): an optional source name can be
+ * given to force a specific音源, otherwise sources are tried in priority order.
+ *
  * @param songId - NetEase song ID
+ * @param sourceName - Optional source name to force (e.g. 'gdmusic', 'unm')
  * @returns {Promise<MatchIDResult | null>}
  */
-export async function matchID(songId: string | number): Promise<MatchIDResult | null> {
+export async function matchID(songId: string | number, sourceName?: string): Promise<MatchIDResult | null> {
   const id = String(songId)
+
+  // Force a specific source if requested
+  if (sourceName) {
+    const target = sources.find((s) => s.name === sourceName)
+    if (target) {
+      try {
+        const url = await target.fn(id)
+        if (url && url.startsWith('http') && !isTrialUrl(url)) {
+          return { url, source: target.name }
+        }
+      } catch {}
+    }
+    return null
+  }
+
   for (const source of sources) {
     try {
       const url = await source.fn(id)

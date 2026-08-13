@@ -384,20 +384,9 @@ export async function handleBa(request: Request, url: URL, env: any): Promise<Re
       code: 200,
       message: 'success',
       url: imageUrl,
-      total: BA_IMAGES.length,
       source: 'jsdelivr-cdn',
     });
   }
 
-  // /ba/list → return all image URLs
-  if (subPath === 'list') {
-    return jsonResponse({
-      code: 200,
-      message: 'success',
-      total: BA_IMAGES.length,
-      images: BA_IMAGES.map(f => CDN_BASE + f),
-    });
-  }
-
-  return errorResponse(`Unknown BA endpoint: /ba/${subPath}. Available: /ba/random, /ba/json, /ba/list`, 404);
+  return errorResponse(`Unknown BA endpoint: /ba/${subPath}. Available: /ba/random, /ba/json`, 404);
 }

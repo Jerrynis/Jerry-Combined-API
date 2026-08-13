@@ -124,6 +124,12 @@ export const routes: Record<string, RouteConfig> = {
       };
     },
   },
+  'song/url/match': {
+    url: '/api/song/enhance/player/url',
+    crypto: 'unblock',
+    desc: '直接解灰(多音源匹配)',
+    params: ['id', 'source'],
+  },
   'song/lyric': {
     url: '/api/song/lyric',
     crypto: 'linuxapi',

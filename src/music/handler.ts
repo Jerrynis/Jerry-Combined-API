@@ -240,6 +240,41 @@ export async function handleMusic(request: Request, url: URL, env: any): Promise
   // Look up route configuration
   const routeConfig = routes[route]
 
+  // ─── Direct unblock endpoint: /music/song/url/match ───
+  // Mirrors api-enhanced's /song/url/match: directly match a gray song to a
+  // playable URL from third-party sources, without going through NetEase first.
+  // Params: id (required), source (optional, force a specific音源)
+  if (route === 'song/url/match') {
+    const songId = data.id || data.ids
+    if (!songId) {
+      return errorResponse('Missing required param: id', 400)
+    }
+    const idStr = Array.isArray(songId) ? String(songId[0]) : String(songId)
+    const sourceName = data.source ? String(data.source) : undefined
+
+    const matched = await unblock.matchID(idStr, sourceName)
+    if (!matched) {
+      return jsonResponse({
+        code: 404,
+        message: '未找到可用的解灰音源',
+        data: { id: idStr, url: null, source: null },
+      }, 200)
+    }
+
+    return jsonResponse({
+      code: 200,
+      message: 'success',
+      data: {
+        id: idStr,
+        url: matched.url,
+        source: matched.source,
+        br: 320000,
+        type: 'mp3',
+        freeTrialInfo: null,
+      },
+    })
+  }
+
   let apiUrl: string
   let cryptoType: string
   let dataToSend: Record<string, any>
