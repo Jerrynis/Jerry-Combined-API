@@ -194,7 +194,134 @@ code {
   transition: all 0.2s; border: none; cursor: pointer;
 }
 .try-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0, 212, 255, 0.3); }
-.search-input {
+/* ─── Preview Panel ─── */
+.preview-panel {
+  margin-top: 2rem;
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+  overflow: hidden;
+}
+.preview-header {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  background: var(--bg-2); border-bottom: 1px solid var(--border);
+}
+.preview-header h3 { font-size: 1rem; color: var(--text); }
+.preview-controls { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+.preview-input {
+  padding: 0.45rem 0.75rem; background: var(--code-bg); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text); font-size: 0.85rem; min-width: 160px;
+  transition: border-color 0.2s;
+}
+.preview-input:focus { outline: none; border-color: var(--accent); }
+.preview-input::placeholder { color: var(--text-3); }
+.preview-select {
+  padding: 0.45rem 0.75rem; background: var(--code-bg); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text); font-size: 0.85rem; cursor: pointer;
+  transition: border-color 0.2s;
+}
+.preview-select:focus { outline: none; border-color: var(--accent); }
+.preview-btn {
+  padding: 0.45rem 1rem; background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: var(--bg); border: none; border-radius: 6px; font-size: 0.85rem; font-weight: 600;
+  cursor: pointer; transition: all 0.2s; white-space: nowrap;
+}
+.preview-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0, 212, 255, 0.25); }
+.preview-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.preview-body {
+  padding: 1.25rem;
+  min-height: 80px;
+  display: flex; align-items: center; justify-content: center;
+}
+.preview-loading {
+  display: flex; align-items: center; gap: 0.5rem; color: var(--text-2); font-size: 0.9rem;
+}
+.preview-spinner {
+  width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--accent);
+  border-radius: 50%; animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.preview-result { width: 100%; }
+.preview-error {
+  color: #f87171; text-align: center; font-size: 0.9rem;
+  padding: 1rem;
+}
+.preview-empty {
+  color: var(--text-3); text-align: center; font-size: 0.9rem;
+}
+/* Image preview */
+.preview-image {
+  max-width: 100%; max-height: 400px; border-radius: 8px;
+  display: block; margin: 0 auto; box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+}
+.preview-image-info {
+  text-align: center; margin-top: 0.75rem; color: var(--text-2); font-size: 0.85rem;
+}
+/* Quote preview */
+.preview-quote {
+  text-align: center; padding: 1.5rem 0;
+}
+.preview-quote-text {
+  font-size: 1.3rem; color: var(--text); line-height: 1.8; margin-bottom: 0.75rem;
+  font-style: italic;
+}
+.preview-quote-from {
+  font-size: 0.9rem; color: var(--accent);
+}
+.preview-quote-category {
+  display: inline-block; margin-left: 0.5rem; font-size: 0.75rem;
+  background: rgba(0, 212, 255, 0.1); padding: 0.15rem 0.5rem; border-radius: 4px;
+}
+/* Hotsearch preview */
+.preview-hot-list { list-style: none; padding: 0; }
+.preview-hot-item {
+  display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border); font-size: 0.88rem;
+}
+.preview-hot-item:last-child { border-bottom: none; }
+.preview-hot-rank {
+  width: 26px; height: 26px; display: flex; align-items: center; justify-content: center;
+  border-radius: 6px; font-weight: 700; font-size: 0.8rem; flex-shrink: 0;
+}
+.preview-hot-rank.top1 { background: #ef4444; color: #fff; }
+.preview-hot-rank.top2 { background: #f97316; color: #fff; }
+.preview-hot-rank.top3 { background: #eab308; color: #fff; }
+.preview-hot-rank.normal { background: rgba(0, 212, 255, 0.1); color: var(--accent); }
+.preview-hot-title { flex: 1; color: var(--text); }
+.preview-hot-count { color: var(--text-3); font-size: 0.8rem; white-space: nowrap; }
+/* Weather preview */
+.preview-weather-card {
+  display: flex; align-items: center; gap: 1.5rem; padding: 0.5rem;
+  flex-wrap: wrap; justify-content: center;
+}
+.preview-weather-temp {
+  font-size: 3rem; font-weight: 700; color: var(--text); line-height: 1;
+}
+.preview-weather-desc {
+  font-size: 1rem; color: var(--text-2); margin-top: 0.25rem;
+}
+.preview-weather-detail {
+  display: flex; gap: 1.5rem; flex-wrap: wrap; justify-content: center;
+  margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);
+}
+.preview-weather-meta { text-align: center; }
+.preview-weather-meta .val { font-size: 1.1rem; font-weight: 600; color: var(--text); }
+.preview-weather-meta .lbl { font-size: 0.75rem; color: var(--text-3); }
+/* Music preview */
+.preview-music-list { list-style: none; padding: 0; }
+.preview-music-item {
+  display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border); font-size: 0.88rem;
+}
+.preview-music-item:last-child { border-bottom: none; }
+.preview-music-name { flex: 1; color: var(--text); }
+.preview-music-artist { color: var(--text-2); font-size: 0.8rem; }
+.preview-music-album { color: var(--text-3); font-size: 0.8rem; margin-left: 0.5rem; }
+.preview-json {
+  background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px;
+  padding: 1rem; overflow-x: auto; font-size: 0.8rem; font-family: 'Fira Code', Consolas, monospace;
+  color: var(--text); max-height: 400px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;
+}
+@media (max-width: 640px) {
   width: 100%; padding: 0.6rem 1rem;
   background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px;
   color: var(--text); font-size: 0.9rem; margin-bottom: 1rem; transition: border-color 0.2s;
@@ -354,6 +481,30 @@ export function navPage(): string {
 
 // ─── BA Random Image Docs ───
 
+const baPreviewScript = `
+function loadBaPreview() {
+  var btn = document.getElementById('baPreviewBtn');
+  var body = document.getElementById('baPreviewBody');
+  btn.disabled = true;
+  btn.textContent = '⏳ 加载中...';
+  body.innerHTML = '<div class="preview-loading"><div class="preview-spinner"></div><span>加载中...</span></div>';
+  fetch('/ba/json')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      body.innerHTML = '<div class="preview-result">'
+        + '<img class="preview-image" src="' + data.url + '" alt="BA Random Image" onload="document.getElementById(\\'baPreviewBtn\\').disabled=false;document.getElementById(\\'baPreviewBtn\\').textContent=\\'🔄 刷新随机图片\\';">'
+        + '<div class="preview-image-info">图片已加载 · 共 ' + data.total + ' 张</div>'
+        + '</div>';
+    })
+    .catch(function(err) {
+      body.innerHTML = '<div class="preview-error">加载失败: ' + err.message + '</div>';
+      btn.disabled = false;
+      btn.textContent = '🔄 刷新随机图片';
+    });
+}
+loadBaPreview();
+`
+
 export function baDocPage(): string {
   const content = `
     <div class="page-header">
@@ -396,11 +547,76 @@ export function baDocPage(): string {
     <div style="margin-top: 1.5rem;">
       <a class="try-btn" href="/ba/json" target="_blank">试一试 /ba/json →</a>
     </div>
+
+    <div class="preview-panel">
+      <div class="preview-header">
+        <h3>📸 在线预览</h3>
+        <div class="preview-controls">
+          <button class="preview-btn" id="baPreviewBtn" onclick="loadBaPreview()">🔄 刷新随机图片</button>
+        </div>
+      </div>
+      <div class="preview-body" id="baPreviewBody">
+        <span class="preview-empty">点击按钮加载随机 BA 图片</span>
+      </div>
+    </div>
   `
-  return page('BA 随机图', 'ba', content)
+  return page('BA 随机图', 'ba', content, baPreviewScript)
 }
 
 // ─── Hot Search Docs ───
+
+const hotsearchPreviewScript = `
+function loadHotPreview() {
+  var btn = document.getElementById('hotPreviewBtn');
+  var body = document.getElementById('hotPreviewBody');
+  var sel = document.getElementById('hotSource');
+  btn.disabled = true;
+  btn.textContent = '⏳ 加载中...';
+  body.innerHTML = '<div class="preview-loading"><div class="preview-spinner"></div><span>加载中...</span></div>';
+  fetch('/hotsearch/' + sel.value)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var items = [];
+      var sources = data.sources || data.data || [];
+      if (data.sources) {
+        // /all response
+        for (var i = 0; i < sources.length; i++) {
+          var s = sources[i];
+          items = items.concat((s.data || []).slice(0, 10));
+        }
+      } else {
+        items = sources.slice(0, 15);
+      }
+      if (items.length === 0) {
+        body.innerHTML = '<div class="preview-empty">暂无数据</div>';
+        btn.disabled = false;
+        btn.textContent = '🔥 查询';
+        return;
+      }
+      var html = '<ul class="preview-hot-list">';
+      for (var i = 0; i < items.length; i++) {
+        var item = items[i];
+        var rank = i + 1;
+        var rankCls = rank === 1 ? 'top1' : rank === 2 ? 'top2' : rank === 3 ? 'top3' : 'normal';
+        html += '<li class="preview-hot-item">'
+          + '<span class="preview-hot-rank ' + rankCls + '">' + rank + '</span>'
+          + '<span class="preview-hot-title">' + (item.title || item.name || '') + '</span>'
+          + '<span class="preview-hot-count">' + (item.hot || item.score || '') + '</span>'
+          + '</li>';
+      }
+      html += '</ul>';
+      body.innerHTML = '<div class="preview-result">' + html + '</div>';
+      btn.disabled = false;
+      btn.textContent = '🔥 查询';
+    })
+    .catch(function(err) {
+      body.innerHTML = '<div class="preview-error">加载失败: ' + err.message + '</div>';
+      btn.disabled = false;
+      btn.textContent = '🔥 查询';
+    });
+}
+loadHotPreview();
+`
 
 export function hotsearchDocPage(): string {
   const content = `
@@ -447,11 +663,76 @@ export function hotsearchDocPage(): string {
     <div style="margin-top: 1.5rem;">
       <a class="try-btn" href="/hotsearch/all" target="_blank">试一试 /hotsearch/all →</a>
     </div>
+
+    <div class="preview-panel">
+      <div class="preview-header">
+        <h3>🔥 实时预览</h3>
+        <div class="preview-controls">
+          <select class="preview-select" id="hotSource" onchange="loadHotPreview()">
+            <option value="all">全部平台</option>
+            <option value="zhihu">知乎</option>
+            <option value="weibo">微博</option>
+            <option value="bilibili">B站</option>
+            <option value="toutiao">头条</option>
+          </select>
+          <button class="preview-btn" id="hotPreviewBtn" onclick="loadHotPreview()">🔥 查询</button>
+        </div>
+      </div>
+      <div class="preview-body" id="hotPreviewBody">
+        <span class="preview-empty">加载中...</span>
+      </div>
+    </div>
   `
-  return page('每日热搜', 'hotsearch', content)
+  return page('每日热搜', 'hotsearch', content, hotsearchPreviewScript)
 }
 
 // ─── Weather Docs ───
+
+const weatherPreviewScript = `
+function loadWeatherPreview() {
+  var btn = document.getElementById('weatherPreviewBtn');
+  var body = document.getElementById('weatherPreviewBody');
+  var inp = document.getElementById('weatherCity');
+  btn.disabled = true;
+  btn.textContent = '⏳ 加载中...';
+  body.innerHTML = '<div class="preview-loading"><div class="preview-spinner"></div><span>加载中...</span></div>';
+  var city = inp.value.trim() || '北京';
+  fetch('/weather/query?city=' + encodeURIComponent(city))
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (!data.current) {
+        body.innerHTML = '<div class="preview-error">未找到该城市天气数据</div>';
+        btn.disabled = false;
+        btn.textContent = '🌤️ 查询天气';
+        return;
+      }
+      var c = data.current;
+      var loc = data.location || {};
+      var html = '<div class="preview-result">'
+        + '<div class="preview-weather-card">'
+        + '<div style="text-align:center;">'
+        + '<div class="preview-weather-temp">' + c.temperature + '°</div>'
+        + '<div class="preview-weather-desc">' + c.weatherDescriptionZh + ' · ' + (loc.city || '') + '</div>'
+        + '</div>'
+        + '</div>'
+        + '<div class="preview-weather-detail">'
+        + '<div class="preview-weather-meta"><div class="val">' + c.humidity + '%</div><div class="lbl">湿度</div></div>'
+        + '<div class="preview-weather-meta"><div class="val">' + c.windSpeed + ' km/h</div><div class="lbl">风速</div></div>'
+        + '<div class="preview-weather-meta"><div class="val">' + c.uvIndex + '</div><div class="lbl">紫外线</div></div>'
+        + '<div class="preview-weather-meta"><div class="val">' + c.visibility + 'm</div><div class="lbl">能见度</div></div>'
+        + '</div></div>';
+      body.innerHTML = html;
+      btn.disabled = false;
+      btn.textContent = '🌤️ 查询天气';
+    })
+    .catch(function(err) {
+      body.innerHTML = '<div class="preview-error">加载失败: ' + err.message + '</div>';
+      btn.disabled = false;
+      btn.textContent = '🌤️ 查询天气';
+    });
+}
+loadWeatherPreview();
+`
 
 export function weatherDocPage(): string {
   const content = `
@@ -542,11 +823,68 @@ export function weatherDocPage(): string {
       <a class="try-btn" href="/weather/gps?lat=39.9&lon=116.4" target="_blank">试一试 /weather/gps →</a>
       <a class="try-btn" href="/weather/health" target="_blank">健康检查 →</a>
     </div>
+
+    <div class="preview-panel">
+      <div class="preview-header">
+        <h3>🌤️ 实时天气预览</h3>
+        <div class="preview-controls">
+          <input type="text" class="preview-input" id="weatherCity" placeholder="输入城市名，如：上海、Tokyo" value="北京" onkeydown="if(event.key==='Enter')loadWeatherPreview()">
+          <button class="preview-btn" id="weatherPreviewBtn" onclick="loadWeatherPreview()">🌤️ 查询天气</button>
+        </div>
+      </div>
+      <div class="preview-body" id="weatherPreviewBody">
+        <span class="preview-empty">加载中...</span>
+      </div>
+    </div>
   `
-  return page('天气位置', 'weather', content)
+  return page('天气位置', 'weather', content, weatherPreviewScript)
 }
 
 // ─── Music Docs ───
+
+const musicPreviewScript = `
+function loadMusicPreview() {
+  var btn = document.getElementById('musicPreviewBtn');
+  var body = document.getElementById('musicPreviewBody');
+  var inp = document.getElementById('musicSearchInput');
+  btn.disabled = true;
+  btn.textContent = '⏳ 搜索中...';
+  body.innerHTML = '<div class="preview-loading"><div class="preview-spinner"></div><span>搜索中...</span></div>';
+  var kw = inp.value.trim() || '周杰伦';
+  fetch('/music/search?keywords=' + encodeURIComponent(kw) + '&limit=10')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var songs = (data.result && data.result.songs) || [];
+      if (songs.length === 0) {
+        body.innerHTML = '<div class="preview-empty">未找到歌曲</div>';
+        btn.disabled = false;
+        btn.textContent = '🎵 搜索';
+        return;
+      }
+      var html = '<ul class="preview-music-list">';
+      for (var i = 0; i < songs.length; i++) {
+        var s = songs[i];
+        var artists = [];
+        if (s.ar) for (var j = 0; j < s.ar.length; j++) artists.push(s.ar[j].name);
+        html += '<li class="preview-music-item">'
+          + '<span class="preview-music-name">' + (i + 1) + '. ' + s.name + '</span>'
+          + '<span class="preview-music-artist">' + artists.join('/') + '</span>'
+          + '<span class="preview-music-album">' + (s.al ? s.al.name : '') + '</span>'
+          + '</li>';
+      }
+      html += '</ul>';
+      body.innerHTML = '<div class="preview-result">' + html + '</div>';
+      btn.disabled = false;
+      btn.textContent = '🎵 搜索';
+    })
+    .catch(function(err) {
+      body.innerHTML = '<div class="preview-error">加载失败: ' + err.message + '</div>';
+      btn.disabled = false;
+      btn.textContent = '🎵 搜索';
+    });
+}
+loadMusicPreview();
+`
 
 export function musicDocPage(): string {
   const musicScript = `
@@ -683,11 +1021,50 @@ renderRoutes(allRoutes);
     <div style="margin-top: 1.5rem;">
       <a class="try-btn" href="/music/search?keywords=布拉格广场&limit=5" target="_blank">试一试 /music/search →</a>
     </div>
+
+    <div class="preview-panel">
+      <div class="preview-header">
+        <h3>🎵 歌曲搜索预览</h3>
+        <div class="preview-controls">
+          <input type="text" class="preview-input" id="musicSearchInput" placeholder="输入歌曲名或歌手名" value="周杰伦" onkeydown="if(event.key==='Enter')loadMusicPreview()">
+          <button class="preview-btn" id="musicPreviewBtn" onclick="loadMusicPreview()">🎵 搜索</button>
+        </div>
+      </div>
+      <div class="preview-body" id="musicPreviewBody">
+        <span class="preview-empty">加载中...</span>
+      </div>
+    </div>
   `
-  return page('网易云音乐', 'music', content, musicScript)
+  return page('网易云音乐', 'music', content, musicScript + musicPreviewScript)
 }
 
 // ─── Bing Wallpaper Docs ───
+
+const bingPreviewScript = `
+function loadBingPreview() {
+  var btn = document.getElementById('bingPreviewBtn');
+  var body = document.getElementById('bingPreviewBody');
+  btn.disabled = true;
+  btn.textContent = '⏳ 加载中...';
+  body.innerHTML = '<div class="preview-loading"><div class="preview-spinner"></div><span>加载中...</span></div>';
+  fetch('/bing/today')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var d = data.data;
+      var img = d.resolutions ? d.resolutions['1920x1080'] : d.url;
+      body.innerHTML = '<div class="preview-result">'
+        + '<img class="preview-image" src="' + img + '" alt="Bing Wallpaper" onload="document.getElementById(\\'bingPreviewBtn\\').disabled=false;document.getElementById(\\'bingPreviewBtn\\').textContent=\\'🔄 刷新\\';">'
+        + '<div class="preview-image-info">' + d.title + ' · ' + d.date + '<br>' + d.copyright + '</div>'
+        + '</div>';
+    })
+    .catch(function(err) {
+      body.innerHTML = '<div class="preview-error">加载失败: ' + err.message + '</div>';
+      btn.disabled = false;
+      btn.textContent = '🔄 刷新';
+    });
+}
+loadBingPreview();
+`
 
 export function bingDocPage(): string {
   const content = `
@@ -747,11 +1124,53 @@ export function bingDocPage(): string {
       <a class="try-btn" href="/bing/today" target="_blank">试一试 /bing/today →</a>
       <a class="try-btn" href="/bing/image" target="_blank">查看今日壁纸 →</a>
     </div>
+
+    <div class="preview-panel">
+      <div class="preview-header">
+        <h3>🖼️ 在线预览</h3>
+        <div class="preview-controls">
+          <button class="preview-btn" id="bingPreviewBtn" onclick="loadBingPreview()">🔄 刷新</button>
+        </div>
+      </div>
+      <div class="preview-body" id="bingPreviewBody">
+        <span class="preview-empty">加载中...</span>
+      </div>
+    </div>
   `
-  return page('Bing 壁纸', 'bing', content)
+  return page('Bing 壁纸', 'bing', content, bingPreviewScript)
 }
 
 // ─── Hitokoto Docs ───
+
+const hitokotoPreviewScript = `
+function loadHitokotoPreview() {
+  var btn = document.getElementById('hitoPreviewBtn');
+  var body = document.getElementById('hitoPreviewBody');
+  var sel = document.getElementById('hitoCategory');
+  btn.disabled = true;
+  btn.textContent = '⏳ 加载中...';
+  body.innerHTML = '<div class="preview-loading"><div class="preview-spinner"></div><span>加载中...</span></div>';
+  var url = '/hitokoto/random';
+  if (sel.value) url += '?category=' + sel.value;
+  fetch(url)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var d = data.data;
+      body.innerHTML = '<div class="preview-result"><div class="preview-quote">'
+        + '<div class="preview-quote-text">"' + d.text + '"</div>'
+        + '<div class="preview-quote-from">—— ' + d.from + '<span class="preview-quote-category">' + d.category + '</span></div>'
+        + '</div></div>';
+      btn.disabled = false;
+      btn.textContent = '🎲 随机一言';
+    })
+    .catch(function(err) {
+      body.innerHTML = '<div class="preview-error">加载失败: ' + err.message + '</div>';
+      btn.disabled = false;
+      btn.textContent = '🎲 随机一言';
+    });
+}
+loadHitokotoPreview();
+`
 
 export function hitokotoDocPage(): string {
   const content = `
@@ -834,6 +1253,28 @@ export function hitokotoDocPage(): string {
       <a class="try-btn" href="/hitokoto/random" target="_blank">试一试 /hitokoto/random →</a>
       <a class="try-btn" href="/hitokoto/categories" target="_blank">查看分类统计 →</a>
     </div>
+
+    <div class="preview-panel">
+      <div class="preview-header">
+        <h3>💭 在线预览</h3>
+        <div class="preview-controls">
+          <select class="preview-select" id="hitoCategory" onchange="loadHitokotoPreview()">
+            <option value="">全部</option>
+            <option value="动漫">动漫</option>
+            <option value="文学">文学</option>
+            <option value="诗词">诗词</option>
+            <option value="电影">电影</option>
+            <option value="哲理">哲理</option>
+            <option value="情感">情感</option>
+            <option value="网络">网络</option>
+          </select>
+          <button class="preview-btn" id="hitoPreviewBtn" onclick="loadHitokotoPreview()">🎲 随机一言</button>
+        </div>
+      </div>
+      <div class="preview-body" id="hitoPreviewBody">
+        <span class="preview-empty">加载中...</span>
+      </div>
+    </div>
   `
-  return page('一言', 'hitokoto', content)
+  return page('一言', 'hitokoto', content, hitokotoPreviewScript)
 }
