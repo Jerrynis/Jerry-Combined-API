@@ -357,6 +357,7 @@ async function fetchBilibili(): Promise<SourceResult> {
     'Sec-Fetch-Mode': 'navigate',
     'Sec-Fetch-Site': 'same-origin',
   }
+  const errors: string[] = []
 
   // 主接口：带 WBI 签名的 ranking v2
   try {
@@ -365,13 +366,15 @@ async function fetchBilibili(): Promise<SourceResult> {
     const result = await getJSON<{ data?: { list: BiliItem[] } }>({
       url,
       headers: biliHeaders,
+      noCache: true,
     })
 
     if (result.data?.data?.list?.length) {
       return buildBiliResult(result, result.data.data.list)
     }
-  } catch {
-    // v2 接口失败，继续尝试备用接口
+    errors.push(`ranking/v2: 返回空数据`)
+  } catch (e) {
+    errors.push(`ranking/v2: ${e instanceof Error ? e.message : String(e)}`)
   }
 
   // 备用接口（不需要 WBI）
@@ -385,11 +388,87 @@ async function fetchBilibili(): Promise<SourceResult> {
     if (fallbackResult.data?.data?.list?.length) {
       return buildBiliResult(fallbackResult, fallbackResult.data.data.list)
     }
-  } catch {
-    // 备用接口也失败
+    errors.push(`ranking: 返回空数据`)
+  } catch (e) {
+    errors.push(`ranking: ${e instanceof Error ? e.message : String(e)}`)
   }
 
-  return errorResult('bilibili', '哔哩哔哩', '热门榜', link, new Error('所有 B站接口均不可用'))
+  // 兜底：热门推荐接口（结构与排行榜一致，同样来自官方）
+  try {
+    const popularUrl = 'https://api.bilibili.com/x/web-interface/popular?ps=30&pn=1'
+    const popularResult = await getJSON<{ data?: { list: BiliItem[] } }>({
+      url: popularUrl,
+      headers: { Referer: 'https://www.bilibili.com/' },
+    })
+
+    if (popularResult.data?.data?.list?.length) {
+      return buildBiliResult(popularResult, popularResult.data.data.list)
+    }
+    errors.push(`popular: 返回空数据`)
+  } catch (e) {
+    errors.push(`popular: ${e instanceof Error ? e.message : String(e)}`)
+  }
+
+  // 兜底：搜索热词接口（s.search.bilibili.com 子域，可能不受 api 子域屏蔽影响）
+  try {
+    const hotwordUrl = 'https://s.search.bilibili.com/main/hotword'
+    const hotwordResult = await getJSON<{ code?: number; list?: BiliHotwordItem[] }>({
+      url: hotwordUrl,
+      headers: { Referer: 'https://www.bilibili.com/' },
+      noCache: true,
+    })
+
+    if (hotwordResult.data?.list?.length) {
+      return buildBiliHotwordResult(hotwordResult, hotwordResult.data.list)
+    }
+    errors.push(`hotword: 返回空数据`)
+  } catch (e) {
+    errors.push(`hotword: ${e instanceof Error ? e.message : String(e)}`)
+  }
+
+  return errorResult(
+    'bilibili',
+    '哔哩哔哩',
+    '热门榜',
+    link,
+    new Error(`所有 B站接口均不可用 (${errors.join(' | ')})`)
+  )
+}
+
+/** B 站搜索热词条目 */
+interface BiliHotwordItem {
+  hot_id: number
+  keyword: string
+  show_name?: string
+  score?: number
+  pos?: number
+  icon?: string
+}
+
+/** 将 B 站搜索热词转换为统一格式 */
+function buildBiliHotwordResult(
+  result: { fromCache: boolean; updateTime: string },
+  list: BiliHotwordItem[]
+): SourceResult {
+  const data = list.map((v) => ({
+    id: String(v.hot_id),
+    title: v.show_name || v.keyword,
+    desc: 'B站搜索热词',
+    hot: Math.round((v.score || 0) * 10000) || undefined,
+    url: `https://search.bilibili.com/all?keyword=${encodeURIComponent(v.keyword)}`,
+    mobileUrl: `https://m.bilibili.com/search?keyword=${encodeURIComponent(v.keyword)}`,
+  }))
+
+  return {
+    name: 'bilibili',
+    title: '哔哩哔哩',
+    type: '热搜榜',
+    link: 'https://www.bilibili.com/v/popular/rank/all',
+    total: data.length,
+    fromCache: result.fromCache,
+    updateTime: result.updateTime,
+    data,
+  }
 }
 
 function buildBiliResult(
