@@ -5,3 +5,6 @@ compatibility_flags = ["nodejs_compat"]
 
 [vars]
 DISABLE_FLAC = "false"
+# B 站中转（Vercel 部署的 hot-search-api 地址，可选）
+# 例：BILI_VERCEL_PROXY = "https://your-project.vercel.app"
+BILI_VERCEL_PROXY = "https://bilibili.jerrynis.com/"

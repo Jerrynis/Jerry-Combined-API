@@ -375,7 +375,7 @@ interface BiliItem {
   short_link_v2?: string
 }
 
-async function fetchBilibili(): Promise<SourceResult> {
+async function fetchBilibili(env?: any): Promise<SourceResult> {
   const link = 'https://www.bilibili.com/v/popular/rank/all'
   const cookie = getBiliCookie()
   const biliHeaders = {
@@ -470,6 +470,19 @@ async function fetchBilibili(): Promise<SourceResult> {
     errors.push(`mobile: ${e instanceof Error ? e.message : String(e)}`)
   }
 
+  // 最终兜底：调用 Vercel 中转（用户自建，用非 Workers IP 抓取 B 站）
+  if (env?.BILI_VERCEL_PROXY) {
+    try {
+      const proxyResult = await fetchBiliViaVercel(env.BILI_VERCEL_PROXY)
+      if (proxyResult) {
+        return proxyResult
+      }
+      errors.push(`vercel: 返回空数据`)
+    } catch (e) {
+      errors.push(`vercel: ${e instanceof Error ? e.message : String(e)}`)
+    }
+  }
+
   return errorResult(
     'bilibili',
     '哔哩哔哩',
@@ -477,6 +490,38 @@ async function fetchBilibili(): Promise<SourceResult> {
     link,
     new Error(`所有 B站接口均不可用 (${errors.join(' | ')})`)
   )
+}
+
+/**
+ * 调用 Vercel 中转获取 B 站数据
+ *
+ * B 站封禁 Cloudflare Workers 的全部出口 IP，但 Vercel（AWS）通常不受影响。
+ * 通过用户自建的 Vercel 函数（hot-search-api 项目）中转获取 B 站数据。
+ */
+async function fetchBiliViaVercel(proxyBase: string): Promise<SourceResult | null> {
+  const base = proxyBase.replace(/\/+$/, '')
+  const response = await fetch(`${base}/api/bilibili`, {
+    headers: {
+      'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      Accept: 'application/json',
+    },
+  })
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status} ${response.statusText}`)
+  }
+
+  const json = (await response.json()) as {
+    code?: number
+    data?: SourceResult
+  }
+
+  if (json.code !== 200 || !json.data?.data?.length) {
+    return null
+  }
+
+  return json.data
 }
 
 /** B 站搜索热词条目 */
@@ -693,11 +738,11 @@ function errorResult(
 }
 
 /** 聚合获取所有平台热搜（并发请求，互不阻塞） */
-async function fetchAllSources(): Promise<SourceResult[]> {
+async function fetchAllSources(env?: any): Promise<SourceResult[]> {
   const [zhihu, weibo, bilibili, toutiao] = await Promise.allSettled([
     fetchZhihu(),
     fetchWeibo(),
-    fetchBilibili(),
+    fetchBilibili(env),
     fetchToutiao(),
   ])
 
@@ -742,7 +787,7 @@ export async function handleHotSearch(
   try {
     // 聚合所有平台
     if (route === '' || route === 'all') {
-      const sources = await fetchAllSources()
+      const sources = await fetchAllSources(env)
       return jsonResponse({
         code: 200,
         message: 'success',
@@ -778,7 +823,7 @@ export async function handleHotSearch(
 
     // 单平台：B站
     if (route === 'bilibili') {
-      const data = await fetchBilibili()
+      const data = await fetchBilibili(env)
       return jsonResponse({
         code: 200,
         message: 'success',
