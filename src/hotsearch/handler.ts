@@ -459,6 +459,17 @@ async function fetchBilibili(): Promise<SourceResult> {
     errors.push(`hotword: ${e instanceof Error ? e.message : String(e)}`)
   }
 
+  // 最终兜底：抓取 B 站移动端网页（m.bilibili.com 子域，服务端渲染，可绕过 api 子域风控）
+  try {
+    const mobileResult = await fetchBiliMobile()
+    if (mobileResult) {
+      return mobileResult
+    }
+    errors.push(`mobile: 网页解析失败`)
+  } catch (e) {
+    errors.push(`mobile: ${e instanceof Error ? e.message : String(e)}`)
+  }
+
   return errorResult(
     'bilibili',
     '哔哩哔哩',
@@ -476,6 +487,90 @@ interface BiliHotwordItem {
   score?: number
   pos?: number
   icon?: string
+}
+
+/** B 站移动端页面条目 */
+interface BiliMobileItem {
+  bvid: string
+  aid: number
+  title: string
+  pic: string
+  pubdate: number
+  duration: number
+  author: { mid: number; name: string; face: string }
+  owner: { mid: number; name: string; face: string }
+  stat: { view: number; danmaku: number; reply: number; favorite: number; coin: number; share: number; like: number }
+  hot_desc: string
+  tname: string
+  tags: string[]
+}
+
+/**
+ * 抓取 B 站移动端网页排行榜数据
+ *
+ * B 站 API（api.bilibili.com）会对数据中心 IP 返回 HTTP 412 风控。
+ * m.bilibili.com 是不同子域，服务端渲染的 __INITIAL_STATE__ 中包含完整的热门视频数据，
+ * 使用移动端 User-Agent 即可获取，可作为最终兜底方案。
+ */
+async function fetchBiliMobile(): Promise<SourceResult | null> {
+  // 缓存 10 分钟，避免每次请求都抓取完整 HTML
+  const cacheKey = 'bili-mobile-ranking'
+  const cached = getCache<SourceResult>(cacheKey)
+  if (cached) {
+    return cached
+  }
+
+  const mobileUA =
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1'
+  const response = await fetch('https://m.bilibili.com/ranking', {
+    headers: {
+      'User-Agent': mobileUA,
+      Referer: 'https://m.bilibili.com/',
+      Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'zh-CN,zh;q=0.9',
+    },
+  })
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status} ${response.statusText}`)
+  }
+
+  const html = await response.text()
+  const match = html.match(/window\.__INITIAL_STATE__\s*=\s*(\{.*?\});\s*\(function\(\)\{var s;/s)
+  if (!match) {
+    return null
+  }
+
+  const state = JSON.parse(match[1])
+  const list: BiliMobileItem[] = state.home?.hotList?.result
+  if (!list?.length) {
+    return null
+  }
+
+  const data = list.map((v) => ({
+    id: v.bvid,
+    title: v.title,
+    desc: v.tname || '热门视频',
+    cover: v.pic?.replace(/^http:/, 'https:'),
+    author: v.author?.name || v.owner?.name,
+    hot: v.stat?.view || 0,
+    url: `https://www.bilibili.com/video/${v.bvid}`,
+    mobileUrl: `https://m.bilibili.com/video/${v.bvid}`,
+  }))
+
+  const result: SourceResult = {
+    name: 'bilibili',
+    title: '哔哩哔哩',
+    type: '热门榜',
+    link: 'https://m.bilibili.com/ranking',
+    total: data.length,
+    fromCache: false,
+    updateTime: new Date().toISOString(),
+    data,
+  }
+
+  setCache(cacheKey, result, 10 * 60 * 1000)
+  return result
 }
 
 /** 将 B 站搜索热词转换为统一格式 */
