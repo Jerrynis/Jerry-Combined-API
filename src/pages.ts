@@ -236,6 +236,7 @@ th {
 }
 td { padding: 0.8rem 1rem; border-top: 1px solid var(--stroke); vertical-align: top; }
 tr:hover td { background: rgba(90,162,255,0.04); }
+.table-group td { font-weight: 700; color: var(--text-1); background: rgba(90,162,255,0.08); letter-spacing: .4px; }
 .badge { display: inline-block; padding: 0.16rem 0.55rem; border-radius: 6px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.5px; }
 .badge-get { background: rgba(52,211,153,0.14); color: var(--get); }
 .badge-post { background: rgba(251,191,36,0.14); color: var(--post); }
@@ -627,7 +628,7 @@ export function baDocPage(): string {
     <div class="page-header">
       <a class="back-link" href="/">← 返回首页</a>
       <h1><span class="h-icon">🎲</span> BA 随机图 API</h1>
-      <p class="subtitle">返回随机 Blue Archive 图片，支持 302 重定向和 JSON 格式</p>
+      <p class="subtitle">随机 Blue Archive 图片，分「官方图」与「画师图」两种来源，支持 302 重定向和 JSON 格式</p>
     </div>
 
     <div class="section">
@@ -635,32 +636,50 @@ export function baDocPage(): string {
       <div class="table-wrap"><table>
         <thead><tr><th>方法</th><th>路径</th><th>说明</th></tr></thead>
         <tbody>
-          <tr><td>${badge('GET')}</td><td><code>/ba/random</code></td><td>302 重定向到随机 BA 图片</td></tr>
-          <tr><td>${badge('GET')}</td><td><code>/ba/json</code></td><td>JSON 格式返回随机图片 URL</td></tr>
+          <tr><td colspan="3" class="table-group">🎨 ba随机官方图（接口不变）</td></tr>
+          <tr><td>${badge('GET')}</td><td><code>/ba/random</code></td><td>302 重定向到随机官方 BA 图片</td></tr>
+          <tr><td>${badge('GET')}</td><td><code>/ba/json</code></td><td>JSON 格式返回随机官方图片 URL</td></tr>
+          <tr><td colspan="3" class="table-group">🖌️ ba随机画师图（来源 R2）</td></tr>
+          <tr><td>${badge('GET')}</td><td><code>/ba/artist</code></td><td>302 重定向到随机画师 BA 图片</td></tr>
+          <tr><td>${badge('GET')}</td><td><code>/ba/artist/json</code></td><td>JSON 格式返回随机画师图片 URL</td></tr>
         </tbody>
       </table></div>
     </div>
 
     <div class="section">
+      <h2 class="section-title">请求参数（仅画师图）</h2>
+      <div class="table-wrap"><table>
+        <thead><tr><th>参数</th><th>取值</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td><code>orientation</code></td><td><code>landscape</code> / <code>portrait</code></td><td>横屏 / 竖屏；不传则横竖随机</td></tr>
+        </tbody>
+      </table></div>
+      <p style="margin-top:.6rem;color:var(--text-2);font-size:.9rem">也支持 <code>horizontal</code>、<code>vertical</code>、<code>横屏</code>、<code>竖屏</code> 等写法。</p>
+    </div>
+
+    <div class="section">
       <h2 class="section-title">使用示例</h2>
-      ${codeBlock('GET /ba/random', '302 重定向')}
-      ${codeBlock('GET /ba/json', 'JSON 响应')}
+      ${codeBlock('GET /ba/random', '官方图 302 重定向')}
+      ${codeBlock('GET /ba/artist?orientation=landscape', '画师图 · 横屏 302 重定向')}
+      ${codeBlock('GET /ba/artist?orientation=portrait', '画师图 · 竖屏 302 重定向')}
+      ${codeBlock('GET /ba/artist/json', '画师图 JSON 响应（横竖随机）')}
     </div>
 
     <div class="section">
       <h2 class="section-title">响应示例</h2>
       ${codeBlock('{\n  "code": 200,\n  "message": "success",\n  "url": "https://cdn.jsdmirror.com/gh/Jerrynis2/image-host@main/public/74955ca0-6c54-4fa3-a634-230f5cd2e25a.png",\n  "source": "jsdelivr-cdn"\n}', '/ba/json 响应')}
+      ${codeBlock('{\n  "code": 200,\n  "message": "success",\n  "url": "https://r2.jerrynis.com/landscape/0052205a-054a-44b1-9e2b-185edf1fa8e3_148312615.jpg",\n  "source": "r2-cdn",\n  "orientation": "landscape"\n}', '/ba/artist/json 响应')}
     </div>
 
     ${infoBox('详细信息', [
-      '图片来源：jsDelivr CDN (cdn.jsdmirror.com)',
-      '图库：GitHub Jerrynis2/image-host',
-      '无参数，无缓存',
+      '官方图：jsDelivr CDN (cdn.jsdmirror.com)，来源 GitHub Jerrynis2/image-host，接口不变、无参数',
+      '画师图：R2 存储 (r2.jerrynis.com)，共 1600 张，横屏 273 张 / 竖屏 1327 张，支持 orientation 参数',
     ])}
 
     <div style="margin-top: 1.5rem;">
-      <a class="try-btn" href="/ba/json" target="_blank">试一试 /ba/json →</a>
-      <a class="try-btn ghost" href="/ba/random" target="_blank">查看随机图 →</a>
+      <a class="try-btn" href="/ba/json" target="_blank">官方图 /ba/json →</a>
+      <a class="try-btn ghost" href="/ba/artist/json" target="_blank">画师图 JSON →</a>
+      <a class="try-btn ghost" href="/ba/artist?orientation=landscape" target="_blank">画师图·横屏 →</a>
     </div>
 
     <div class="preview-panel">
