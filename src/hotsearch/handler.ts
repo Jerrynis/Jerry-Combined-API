@@ -173,7 +173,7 @@ interface WbiKeys {
 
 /** 从 nav 接口获取最新的 img_key 和 sub_key */
 async function getWbiKeys(): Promise<WbiKeys> {
-  const cookie = await getBiliCookie()
+  const cookie = getBiliCookie()
   const response = await fetch('https://api.bilibili.com/x/web-interface/nav', {
     headers: {
       'User-Agent':
@@ -197,37 +197,27 @@ async function getWbiKeys(): Promise<WbiKeys> {
 let biliCookieCache: { cookie: string; expireAt: number } | null = null
 
 /**
- * 获取 B 站访问 cookie（buvid3 等）
+ * 生成随机 buvid3 cookie
  *
  * B 站风控会对数据中心 IP（如 Cloudflare Workers）返回 HTTP 412。
- * 通过先访问 bilibili.com 首页获取 buvid3 cookie，可绕过 412 风控。
- * cookie 缓存 30 分钟，避免每次请求都访问首页。
+ * buvid3 本质是 UUID + "infoc" 后缀的访问标识，无需真实访问首页获取，
+ * 直接随机生成即可绕过 412 风控（实测有效）。
  */
-async function getBiliCookie(): Promise<string> {
+function getBiliCookie(): string {
   if (biliCookieCache && Date.now() < biliCookieCache.expireAt) {
     return biliCookieCache.cookie
   }
 
-  try {
-    const response = await fetch('https://www.bilibili.com/', {
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-      },
-    })
-    const setCookie = response.headers.get('set-cookie') || ''
-    const buvid3 = setCookie.match(/buvid3=([^;]+)/)?.[1] || ''
-    const bNut = setCookie.match(/b_nut=([^;]+)/)?.[1] || ''
-    const cookie = ['buvid3=' + buvid3, bNut ? 'b_nut=' + bNut : ''].filter(Boolean).join('; ')
-    if (buvid3) {
-      biliCookieCache = { cookie, expireAt: Date.now() + 30 * 60 * 1000 }
-      return cookie
-    }
-  } catch {
-    // 获取 cookie 失败，返回空（后续接口会尝试无 cookie 请求）
-  }
-
-  return ''
+  const uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0
+    const v = c === 'x' ? r : (r & 0x3) | 0x8
+    return v.toString(16)
+  })
+  const buvid3 = uuid.toUpperCase() + 'infoc'
+  const cookie = `buvid3=${buvid3}`
+  // 缓存 30 分钟，避免每次请求都重新生成
+  biliCookieCache = { cookie, expireAt: Date.now() + 30 * 60 * 1000 }
+  return cookie
 }
 
 /**
@@ -387,7 +377,7 @@ interface BiliItem {
 
 async function fetchBilibili(): Promise<SourceResult> {
   const link = 'https://www.bilibili.com/v/popular/rank/all'
-  const cookie = await getBiliCookie()
+  const cookie = getBiliCookie()
   const biliHeaders = {
     Referer: 'https://www.bilibili.com/ranking/all',
     Cookie: cookie,
