@@ -173,11 +173,13 @@ interface WbiKeys {
 
 /** 从 nav 接口获取最新的 img_key 和 sub_key */
 async function getWbiKeys(): Promise<WbiKeys> {
+  const cookie = await getBiliCookie()
   const response = await fetch('https://api.bilibili.com/x/web-interface/nav', {
     headers: {
       'User-Agent':
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
       Referer: 'https://www.bilibili.com/',
+      Cookie: cookie,
     },
   })
   const json = (await response.json()) as {
@@ -189,6 +191,43 @@ async function getWbiKeys(): Promise<WbiKeys> {
     imgKey: img_url.slice(img_url.lastIndexOf('/') + 1, img_url.lastIndexOf('.')),
     subKey: sub_url.slice(sub_url.lastIndexOf('/') + 1, sub_url.lastIndexOf('.')),
   }
+}
+
+/** B 站 cookie 缓存（含过期时间） */
+let biliCookieCache: { cookie: string; expireAt: number } | null = null
+
+/**
+ * 获取 B 站访问 cookie（buvid3 等）
+ *
+ * B 站风控会对数据中心 IP（如 Cloudflare Workers）返回 HTTP 412。
+ * 通过先访问 bilibili.com 首页获取 buvid3 cookie，可绕过 412 风控。
+ * cookie 缓存 30 分钟，避免每次请求都访问首页。
+ */
+async function getBiliCookie(): Promise<string> {
+  if (biliCookieCache && Date.now() < biliCookieCache.expireAt) {
+    return biliCookieCache.cookie
+  }
+
+  try {
+    const response = await fetch('https://www.bilibili.com/', {
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      },
+    })
+    const setCookie = response.headers.get('set-cookie') || ''
+    const buvid3 = setCookie.match(/buvid3=([^;]+)/)?.[1] || ''
+    const bNut = setCookie.match(/b_nut=([^;]+)/)?.[1] || ''
+    const cookie = ['buvid3=' + buvid3, bNut ? 'b_nut=' + bNut : ''].filter(Boolean).join('; ')
+    if (buvid3) {
+      biliCookieCache = { cookie, expireAt: Date.now() + 30 * 60 * 1000 }
+      return cookie
+    }
+  } catch {
+    // 获取 cookie 失败，返回空（后续接口会尝试无 cookie 请求）
+  }
+
+  return ''
 }
 
 /**
@@ -348,8 +387,10 @@ interface BiliItem {
 
 async function fetchBilibili(): Promise<SourceResult> {
   const link = 'https://www.bilibili.com/v/popular/rank/all'
+  const cookie = await getBiliCookie()
   const biliHeaders = {
     Referer: 'https://www.bilibili.com/ranking/all',
+    Cookie: cookie,
     'Sec-Ch-Ua': '"Google Chrome";v="124", "Not:A-Brand";v="8", "Chromium";v="124"',
     'Sec-Ch-Ua-Mobile': '?0',
     'Sec-Ch-Ua-Platform': '"Windows"',
@@ -382,7 +423,8 @@ async function fetchBilibili(): Promise<SourceResult> {
     const fallbackUrl = 'https://api.bilibili.com/x/web-interface/ranking?rid=0&type=all'
     const fallbackResult = await getJSON<{ data?: { list: BiliItem[] } }>({
       url: fallbackUrl,
-      headers: { Referer: 'https://www.bilibili.com/ranking/all' },
+      headers: biliHeaders,
+      noCache: true,
     })
 
     if (fallbackResult.data?.data?.list?.length) {
@@ -398,7 +440,8 @@ async function fetchBilibili(): Promise<SourceResult> {
     const popularUrl = 'https://api.bilibili.com/x/web-interface/popular?ps=30&pn=1'
     const popularResult = await getJSON<{ data?: { list: BiliItem[] } }>({
       url: popularUrl,
-      headers: { Referer: 'https://www.bilibili.com/' },
+      headers: { ...biliHeaders, Referer: 'https://www.bilibili.com/' },
+      noCache: true,
     })
 
     if (popularResult.data?.data?.list?.length) {
@@ -409,12 +452,12 @@ async function fetchBilibili(): Promise<SourceResult> {
     errors.push(`popular: ${e instanceof Error ? e.message : String(e)}`)
   }
 
-  // 兜底：搜索热词接口（s.search.bilibili.com 子域，可能不受 api 子域屏蔽影响）
+  // 兜底：搜索热词接口（s.search.bilibili.com 子域）
   try {
     const hotwordUrl = 'https://s.search.bilibili.com/main/hotword'
     const hotwordResult = await getJSON<{ code?: number; list?: BiliHotwordItem[] }>({
       url: hotwordUrl,
-      headers: { Referer: 'https://www.bilibili.com/' },
+      headers: { ...biliHeaders, Referer: 'https://www.bilibili.com/' },
       noCache: true,
     })
 
