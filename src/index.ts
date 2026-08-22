@@ -30,7 +30,7 @@ import { handleMusic } from './music/handler'
 import { jsonResponse, htmlResponse, errorResponse, handleOptions } from './shared'
 
 export default {
-  async fetch(request: Request, env: any): Promise<Response> {
+  async fetch(request: Request, env: any, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url)
 
     // Handle CORS preflight for all routes
@@ -86,7 +86,7 @@ export default {
 
     // ─── API routes ───
     if (path.startsWith('/ba/')) {
-      return handleBa(request, url, env)
+      return handleBa(request, url, env, ctx)
     }
     if (path.startsWith('/bing/')) {
       return handleBing(request, url, env)

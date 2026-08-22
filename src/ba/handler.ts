@@ -1988,13 +1988,42 @@ function pickArtistUrl(orientation: string | null): string {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
-export async function handleBa(request: Request, url: URL, env: any): Promise<Response> {
+// 在 Worker 边缘直接拉取并返回图片字节，避免浏览器二次连接；
+// 命中 Cloudflare Cache API 时直接回缓存，重复访问近瞬时。
+const PROXY_TTL = 60 * 60; // 1 小时
+
+async function proxyImage(imageUrl: string, ctx: ExecutionContext): Promise<Response> {
+  const cache = caches.default;
+  const req = new Request(imageUrl);
+
+  const hit = await cache.match(req);
+  if (hit) {
+    const h = new Headers(hit.headers);
+    h.set('Cache-Control', `public, max-age=${PROXY_TTL}`);
+    h.set('Access-Control-Allow-Origin', '*');
+    return new Response(hit.body, { status: hit.status, headers: h });
+  }
+
+  const upstream = await fetch(req);
+  if (!upstream.ok) {
+    return redirectResponse(imageUrl);
+  }
+
+  const h = new Headers(upstream.headers);
+  h.set('Cache-Control', `public, max-age=${PROXY_TTL}`);
+  h.set('Access-Control-Allow-Origin', '*');
+  const out = new Response(upstream.body, { status: upstream.status, headers: h });
+  ctx.waitUntil(cache.put(req, out.clone()));
+  return out;
+}
+
+export async function handleBa(request: Request, url: URL, env: any, ctx: ExecutionContext): Promise<Response> {
   const subPath = url.pathname.replace(/^\/ba\/?/, '').toLowerCase();
   const orientation = url.searchParams.get('orientation');
 
-  // ── ba随机官方图（接口不变）──
+  // ── ba随机官方图（接口保持 /ba/random，改为边缘直出图）──
   if (subPath === 'random' || subPath === 'ba' || subPath === '') {
-    return redirectResponse(getRandomImageUrl());
+    return proxyImage(getRandomImageUrl(), ctx);
   }
   if (subPath === 'json') {
     const imageUrl = getRandomImageUrl();
@@ -2006,9 +2035,9 @@ export async function handleBa(request: Request, url: URL, env: any): Promise<Re
     });
   }
 
-  // ── ba随机画师图（来源 R2，支持 orientation 参数）──
+  // ── ba随机画师图（来源 R2，支持 orientation 参数，边缘直出）──
   if (subPath === 'artist' || subPath === 'artist/random') {
-    return redirectResponse(pickArtistUrl(orientation));
+    return proxyImage(pickArtistUrl(orientation), ctx);
   }
   if (subPath === 'artist/json') {
     return jsonResponse({
