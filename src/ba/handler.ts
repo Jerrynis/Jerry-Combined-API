@@ -245,11 +245,9 @@ c5ab23f7-f542-4b38-9830-58942c3451b4.png
 49ace81a-8a17-498e-b8fe-25cb648b65d1.png
 99c369aa-d02d-4b07-bbf2-c3538ad0264a.png
 0664d789-2a64-4ec2-9d6e-d99aeed9306e.png
-352a5c04-d274-4f26-9052-08737034fb7f.png
 73f6ace8-1b5e-47c4-9acd-4e2a9323d5d0.png
 c9fb1bc9-98b1-4fe0-947e-ffaf7137e92c.png
 42dda170-59fa-409d-b2df-e841c51b3463.png
-5a602941-2e86-4eb6-943a-3a551b755e05.png
 b20b7560-4fb3-4cdb-a923-a6efe6d847eb.png
 1fa464d1-5d82-4b42-a088-69f5dd38fc22.png
 bcfaafd0-b871-4271-9bbd-a6e483f22182.png
@@ -1967,8 +1965,18 @@ https://r2.jerrynis.com/portrait/ff93dd8d-4943-4060-ab43-00609072d4d5_146723455.
 https://r2.jerrynis.com/portrait/ffa73f79-6491-4240-a304-61f935eca8e4_145326895.jpg
 https://r2.jerrynis.com/portrait/ffc617cc-8b7b-4abb-b825-6ccc8843e96b_147394494.jpg`.split('\n').filter(Boolean);
 
-function getRandomImageUrl(): string {
-  const filename = BA_IMAGES[Math.floor(Math.random() * BA_IMAGES.length)];
+// deterministic 32-bit hash，用于按时间戳稳定选出同一张图
+function hashCode(s: string): number {
+  let h = 0
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
+  return h >>> 0
+}
+
+// seed 存在时按 seed 稳定挑图；否则随机
+function getRandomImageUrl(seed?: string): string {
+  const filename = seed
+    ? BA_IMAGES[hashCode(seed) % BA_IMAGES.length]
+    : BA_IMAGES[Math.floor(Math.random() * BA_IMAGES.length)];
   return CDN_BASE + filename;
 }
 
@@ -1979,18 +1987,28 @@ function orientKey(o: string | null): string | null {
   return null;
 }
 
-function pickArtistUrl(orientation: string | null): string {
+function pickArtistUrl(orientation: string | null, seed?: string): string {
   let pool: string[];
   const key = orientKey(orientation);
   if (key === 'landscape') pool = ARTIST_LANDSCAPE;
   else if (key === 'portrait') pool = ARTIST_PORTRAIT;
+  else if (seed) pool = hashCode(seed) % 2 === 0 ? ARTIST_LANDSCAPE : ARTIST_PORTRAIT;
   else pool = Math.random() < 0.5 ? ARTIST_LANDSCAPE : ARTIST_PORTRAIT;
+  if (seed) return pool[hashCode(seed) % pool.length];
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
 // 在 Worker 边缘直接拉取并返回图片字节，避免浏览器二次连接；
 // 命中 Cloudflare Cache API 时直接回缓存，重复访问近瞬时。
 const PROXY_TTL = 60 * 60; // 1 小时
+
+// 随机图接口的响应禁止浏览器缓存，否则刷新会一直命中本地缓存而不换图。
+// 服务端仍通过 Cache API 按图片 URL 缓存字节（命中即回），只对客户端响应改为 no-store。
+function serveImage(response: Response): Response {
+  const h = new Headers(response.headers);
+  h.set('Cache-Control', 'no-store');
+  return new Response(response.body, { status: response.status, headers: h });
+}
 
 async function proxyImage(imageUrl: string, ctx: ExecutionContext): Promise<Response> {
   const cache = caches.default;
@@ -1999,9 +2017,8 @@ async function proxyImage(imageUrl: string, ctx: ExecutionContext): Promise<Resp
   const hit = await cache.match(req);
   if (hit) {
     const h = new Headers(hit.headers);
-    h.set('Cache-Control', `public, max-age=${PROXY_TTL}`);
     h.set('Access-Control-Allow-Origin', '*');
-    return new Response(hit.body, { status: hit.status, headers: h });
+    return serveImage(new Response(hit.body, { status: hit.status, headers: h }));
   }
 
   const upstream = await fetch(req);
@@ -2014,19 +2031,21 @@ async function proxyImage(imageUrl: string, ctx: ExecutionContext): Promise<Resp
   h.set('Access-Control-Allow-Origin', '*');
   const out = new Response(upstream.body, { status: upstream.status, headers: h });
   ctx.waitUntil(cache.put(req, out.clone()));
-  return out;
+  return serveImage(new Response(out.body, { status: out.status, headers: new Headers(out.headers) }));
 }
 
 export async function handleBa(request: Request, url: URL, env: any, ctx: ExecutionContext): Promise<Response> {
   const subPath = url.pathname.replace(/^\/ba\/?/, '').toLowerCase();
   const orientation = url.searchParams.get('orientation');
+  // 时间戳种子：提供 t 或 ts 时，同一值固定返回同一张图；缺省则随机
+  const seed = url.searchParams.get('t') || url.searchParams.get('ts');
 
   // ── ba随机官方图（接口保持 /ba/random，改为边缘直出图）──
   if (subPath === 'random' || subPath === 'ba' || subPath === '') {
-    return proxyImage(getRandomImageUrl(), ctx);
+    return proxyImage(getRandomImageUrl(seed || undefined), ctx);
   }
   if (subPath === 'json') {
-    const imageUrl = getRandomImageUrl();
+    const imageUrl = getRandomImageUrl(seed || undefined);
     return jsonResponse({
       code: 200,
       message: 'success',
@@ -2037,13 +2056,13 @@ export async function handleBa(request: Request, url: URL, env: any, ctx: Execut
 
   // ── ba随机画师图（来源 R2，支持 orientation 参数，边缘直出）──
   if (subPath === 'artist' || subPath === 'artist/random') {
-    return proxyImage(pickArtistUrl(orientation), ctx);
+    return proxyImage(pickArtistUrl(orientation, seed || undefined), ctx);
   }
   if (subPath === 'artist/json') {
     return jsonResponse({
       code: 200,
       message: 'success',
-      url: pickArtistUrl(orientation),
+      url: pickArtistUrl(orientation, seed || undefined),
       source: 'r2-cdn',
       orientation: orientKey(orientation) || 'random',
     });
