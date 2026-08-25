@@ -2040,9 +2040,9 @@ export async function handleBa(request: Request, url: URL, env: any, ctx: Execut
   // 时间戳种子：提供 t 或 ts 时，同一值固定返回同一张图；缺省则随机
   const seed = url.searchParams.get('t') || url.searchParams.get('ts');
 
-  // ── ba随机官方图（接口保持 /ba/random，直接 302 跳转到图片链接）──
+  // ── ba随机官方图（接口保持 /ba/random，边缘直出图）──
   if (subPath === 'random' || subPath === 'ba' || subPath === '') {
-    return redirectResponse(getRandomImageUrl(seed || undefined));
+    return proxyImage(getRandomImageUrl(seed || undefined), ctx);
   }
   if (subPath === 'json') {
     const imageUrl = getRandomImageUrl(seed || undefined);
