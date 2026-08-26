@@ -2040,9 +2040,9 @@ export async function handleBa(request: Request, url: URL, env: any, ctx: Execut
   // 时间戳种子：提供 t 或 ts 时，同一值固定返回同一张图；缺省则随机
   const seed = url.searchParams.get('t') || url.searchParams.get('ts');
 
-  // ── ba随机官方图（接口保持 /ba/random，边缘直出图）──
+  // ── ba随机官方图（接口保持 /ba/random，直接 302 跳转到图片直链）──
   if (subPath === 'random' || subPath === 'ba' || subPath === '') {
-    return proxyImage(getRandomImageUrl(seed || undefined), ctx);
+    return redirectResponse(getRandomImageUrl(seed || undefined));
   }
   if (subPath === 'json') {
     const imageUrl = getRandomImageUrl(seed || undefined);
@@ -2054,9 +2054,9 @@ export async function handleBa(request: Request, url: URL, env: any, ctx: Execut
     });
   }
 
-  // ── ba随机画师图（来源 R2，支持 orientation 参数，边缘直出）──
+  // ── ba随机画师图（来源 R2，支持 orientation 参数，直接跳转直链）──
   if (subPath === 'artist' || subPath === 'artist/random') {
-    return proxyImage(pickArtistUrl(orientation, seed || undefined), ctx);
+    return redirectResponse(pickArtistUrl(orientation, seed || undefined));
   }
   if (subPath === 'artist/json') {
     return jsonResponse({
