@@ -285,7 +285,7 @@ async function getGeoFromIpInfo(ip: string): Promise<GeoLocation | null> {
   const url = isPrivateIp(ip)
     ? 'https://ipinfo.io/json'
     : `https://ipinfo.io/${ip}/json`
-  const response = await fetch(url)
+  const response = await fetch(url, { signal: AbortSignal.timeout(6000) })
   if (!response.ok) return null
 
   const data = (await response.json()) as any
@@ -312,7 +312,7 @@ async function getGeoFromIpInfo(ip: string): Promise<GeoLocation | null> {
  */
 async function getGeoFromIpWhoIs(ip: string): Promise<GeoLocation | null> {
   const url = isPrivateIp(ip) ? 'https://ipwho.is/' : `https://ipwho.is/${ip}`
-  const response = await fetch(url)
+  const response = await fetch(url, { signal: AbortSignal.timeout(6000) })
   if (!response.ok) return null
 
   const data = (await response.json()) as any
@@ -431,7 +431,7 @@ async function geocodeCity(cityName: string, language: string = 'zh'): Promise<G
   })
 
   const url = `https://geocoding-api.open-meteo.com/v1/search?${params.toString()}`
-  const response = await fetch(url)
+  const response = await fetch(url, { signal: AbortSignal.timeout(8000) })
 
   if (!response.ok) {
     throw new Error(`Geocoding API error: ${response.status}`)
@@ -523,7 +523,7 @@ async function fetchWeather(
   })
 
   const url = `https://api.open-meteo.com/v1/forecast?${params.toString()}`
-  const response = await fetch(url)
+  const response = await fetch(url, { signal: AbortSignal.timeout(8000) })
 
   if (!response.ok) {
     throw new Error(`Open-Meteo API error: ${response.status} ${response.statusText}`)
@@ -656,7 +656,8 @@ async function handleQuery(request: Request, url: URL): Promise<Response> {
 
       try {
         const geoResp = await fetch(
-          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=zh`
+          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=zh`,
+          { signal: AbortSignal.timeout(5000) }
         )
         if (geoResp.ok) {
           const geoData = (await geoResp.json()) as any

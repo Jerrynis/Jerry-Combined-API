@@ -3,7 +3,7 @@
 // Fetches daily wallpapers from Bing
 // ============================================================
 
-import { jsonResponse, errorResponse, getCache, setCache } from '../shared'
+import { jsonResponse, errorResponse, getCache, setCache, withEdgeCache, redirectResponse } from '../shared'
 
 const BING_BASE = 'https://cn.bing.com'
 const BING_API = `${BING_BASE}/HPImageArchive.aspx`
@@ -39,17 +39,34 @@ interface BingResponse {
   }>
 }
 
-async function fetchBingImages(count: number = 8, offset: number = 0): Promise<BingImage[]> {
+async function fetchBingImages(count: number = 8, offset: number = 0, ctx?: ExecutionContext): Promise<BingImage[]> {
   const cacheKey = `bing_images_${count}_${offset}`
   const cached = getCache<BingImage[]>(cacheKey)
   if (cached) return cached
 
+  // 新鲜缓存过期后，先秒回上一次的结果（stale），并在后台刷新，
+  // 避免重定向请求阻塞在 Bing 上游的网络往返上。
+  const stale = staleBingImages.get(cacheKey)
+  if (stale && stale.length > 0) {
+    const bg = refreshBingImages(cacheKey, count, offset).catch(() => {})
+    if (ctx) ctx.waitUntil(bg)
+    return stale
+  }
+
+  return await refreshBingImages(cacheKey, count, offset)
+}
+
+// 长期保留的上一次成功结果，用于 stale-while-revalidate
+const staleBingImages = new Map<string, BingImage[]>()
+
+async function refreshBingImages(cacheKey: string, count: number, offset: number): Promise<BingImage[]> {
   const apiUrl = `${BING_API}?format=js&idx=${offset}&n=${count}&mkt=zh-CN`
   const resp = await fetch(apiUrl, {
     headers: {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
       'Accept': 'application/json',
     },
+    signal: AbortSignal.timeout(10000),
   })
 
   if (!resp.ok) {
@@ -70,6 +87,7 @@ async function fetchBingImages(count: number = 8, offset: number = 0): Promise<B
   }))
 
   setCache(cacheKey, images, CACHE_TTL)
+  if (images.length > 0) staleBingImages.set(cacheKey, images)
   return images
 }
 
@@ -81,86 +99,80 @@ function formatDate(startdate: string): string {
   return `${y}-${m}-${d}`
 }
 
-export async function handleBing(request: Request, url: URL, env: any): Promise<Response> {
+export async function handleBing(request: Request, url: URL, env: any, ctx?: ExecutionContext): Promise<Response> {
   const subPath = url.pathname.replace(/^\/bing\/?/, '').toLowerCase()
 
   // /bing/today → today's wallpaper info
   if (subPath === 'today' || subPath === '') {
-    try {
-      const images = await fetchBingImages(1, 0)
-      if (images.length === 0) {
-        return errorResponse('No wallpaper available', 404)
-      }
-      const img = images[0]
-      return jsonResponse({
-        code: 200,
-        message: 'success',
-        data: {
-          title: img.title,
-          date: formatDate(img.startdate),
-          url: img.fullUrl,
-          urlbase: img.fullUrlBase,
-          copyright: img.copyright,
-          copyrightLink: img.copyrightlink.startsWith('http') ? img.copyrightlink : `${BING_BASE}${img.copyrightlink}`,
-          hash: img.hsh,
-          resolutions: {
-            '1920x1080': img.fullUrl,
-            'UHD': `${img.fullUrlBase}_UHD.jpg`,
-            '1080x1920': `${img.fullUrlBase}_1080x1920.jpg`,
-            '1366x768': `${img.fullUrlBase}_1366x768.jpg`,
+    return withEdgeCache(request, ctx, 1800, async () => {
+      try {
+        const images = await fetchBingImages(1, 0, ctx)
+        if (images.length === 0) {
+          return errorResponse('No wallpaper available', 404)
+        }
+        const img = images[0]
+        return jsonResponse({
+          code: 200,
+          message: 'success',
+          data: {
+            title: img.title,
+            date: formatDate(img.startdate),
+            url: img.fullUrl,
+            urlbase: img.fullUrlBase,
+            copyright: img.copyright,
+            copyrightLink: img.copyrightlink.startsWith('http') ? img.copyrightlink : `${BING_BASE}${img.copyrightlink}`,
+            hash: img.hsh,
+            resolutions: {
+              '1920x1080': img.fullUrl,
+              'UHD': `${img.fullUrlBase}_UHD.jpg`,
+              '1080x1920': `${img.fullUrlBase}_1080x1920.jpg`,
+              '1366x768': `${img.fullUrlBase}_1366x768.jpg`,
+            },
           },
-        },
-        fromCache: false,
-        timestamp: new Date().toISOString(),
-      })
-    } catch (e: any) {
-      return errorResponse(`Failed to fetch Bing wallpaper: ${e.message}`, 500)
-    }
+          fromCache: false,
+          timestamp: new Date().toISOString(),
+        })
+      } catch (e: any) {
+        return errorResponse(`Failed to fetch Bing wallpaper: ${e.message}`, 500)
+      }
+    })
   }
 
   // /bing/image → 302 redirect to today's wallpaper image
+  // 跳转目标（当日壁纸）稳定，边缘缓存整条 302：命中即在边缘直接返回，跳过回源。
   if (subPath === 'image') {
-    try {
-      const images = await fetchBingImages(1, 0)
-      if (images.length === 0) {
-        return errorResponse('No wallpaper available', 404)
+    return withEdgeCache(request, ctx, 1800, async () => {
+      try {
+        const images = await fetchBingImages(1, 0, ctx)
+        if (images.length === 0) return errorResponse('No wallpaper available', 404)
+        return redirectResponse(images[0].fullUrl)
+      } catch (e: any) {
+        return errorResponse(`Failed to fetch Bing wallpaper: ${e.message}`, 500)
       }
-      return new Response(null, {
-        status: 302,
-        headers: {
-          Location: images[0].fullUrl,
-          'Cache-Control': 'public, max-age=1800',
-        },
-      })
-    } catch (e: any) {
-      return errorResponse(`Failed to fetch Bing wallpaper: ${e.message}`, 500)
-    }
+    })
   }
 
   // /bing/image/uhd → 302 redirect to UHD wallpaper
   if (subPath === 'image/uhd') {
-    try {
-      const images = await fetchBingImages(1, 0)
-      if (images.length === 0) return errorResponse('No wallpaper available', 404)
-      return new Response(null, {
-        status: 302,
-        headers: { Location: `${images[0].fullUrlBase}_UHD.jpg`, 'Cache-Control': 'public, max-age=1800' },
-      })
-    } catch (e: any) {
-      return errorResponse(`Failed: ${e.message}`, 500)
-    }
+    return withEdgeCache(request, ctx, 1800, async () => {
+      try {
+        const images = await fetchBingImages(1, 0, ctx)
+        if (images.length === 0) return errorResponse('No wallpaper available', 404)
+        return redirectResponse(`${images[0].fullUrlBase}_UHD.jpg`)
+      } catch (e: any) {
+        return errorResponse(`Failed: ${e.message}`, 500)
+      }
+    })
   }
 
   // /bing/random → random day's wallpaper from last 8 days
+  // 每次请求需随机，故不边缘缓存 302（no-store）；列表数据靠 SWR 秒回，不阻塞上游。
   if (subPath === 'random') {
     try {
-      const images = await fetchBingImages(8, 0)
+      const images = await fetchBingImages(8, 0, ctx)
       if (images.length === 0) return errorResponse('No wallpaper available', 404)
       const random = images[Math.floor(Math.random() * images.length)]
-      return new Response(null, {
-        status: 302,
-        headers: { Location: random.fullUrl, 'Cache-Control': 'public, max-age=1800' },
-      })
+      return redirectResponse(random.fullUrl, 'no-store')
     } catch (e: any) {
       return errorResponse(`Failed: ${e.message}`, 500)
     }
@@ -170,27 +182,29 @@ export async function handleBing(request: Request, url: URL, env: any): Promise<
   if (subPath === 'list') {
     const countParam = url.searchParams.get('count')
     const count = countParam ? Math.min(Math.max(parseInt(countParam) || 8, 1), 8) : 8
-    try {
-      const images = await fetchBingImages(count, 0)
-      return jsonResponse({
-        code: 200,
-        message: 'success',
-        total: images.length,
-        data: images.map(img => ({
-          title: img.title,
-          date: formatDate(img.startdate),
-          url: img.fullUrl,
-          urlUHD: `${img.fullUrlBase}_UHD.jpg`,
-          copyright: img.copyright,
-          copyrightLink: img.copyrightlink.startsWith('http') ? img.copyrightlink : `${BING_BASE}${img.copyrightlink}`,
-          hash: img.hsh,
-        })),
-        fromCache: false,
-        timestamp: new Date().toISOString(),
-      })
-    } catch (e: any) {
-      return errorResponse(`Failed: ${e.message}`, 500)
-    }
+    return withEdgeCache(request, ctx, 1800, async () => {
+      try {
+        const images = await fetchBingImages(count, 0, ctx)
+        return jsonResponse({
+          code: 200,
+          message: 'success',
+          total: images.length,
+          data: images.map(img => ({
+            title: img.title,
+            date: formatDate(img.startdate),
+            url: img.fullUrl,
+            urlUHD: `${img.fullUrlBase}_UHD.jpg`,
+            copyright: img.copyright,
+            copyrightLink: img.copyrightlink.startsWith('http') ? img.copyrightlink : `${BING_BASE}${img.copyrightlink}`,
+            hash: img.hsh,
+          })),
+          fromCache: false,
+          timestamp: new Date().toISOString(),
+        })
+      } catch (e: any) {
+        return errorResponse(`Failed: ${e.message}`, 500)
+      }
+    })
   }
 
   return errorResponse(`Unknown Bing endpoint: /bing/${subPath}. Available: /bing/today, /bing/image, /bing/image/uhd, /bing/random, /bing/list`, 404)

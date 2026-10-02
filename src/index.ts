@@ -27,7 +27,7 @@ import { handleHitokoto } from './hitokoto/handler'
 import { handleHotSearch } from './hotsearch/handler'
 import { handleWeather } from './weather/handler'
 import { handleMusic } from './music/handler'
-import { jsonResponse, htmlResponse, errorResponse, handleOptions } from './shared'
+import { jsonResponse, htmlResponse, errorResponse, handleOptions, redirectResponse } from './shared'
 
 export default {
   async fetch(request: Request, env: any, ctx: ExecutionContext): Promise<Response> {
@@ -44,10 +44,7 @@ export default {
 
     // ─── Favicon ───
     if (path === '/favicon.ico') {
-      return new Response(null, {
-        status: 302,
-        headers: { Location: 'https://img.jerry-nis.top/d8703c5c-4c4a-49cc-bd94-3363c9eda2d8.png' },
-      })
+      return redirectResponse('https://img.jerry-nis.top/d8703c5c-4c4a-49cc-bd94-3363c9eda2d8.png', 'public, max-age=86400')
     }
 
     // ─── Health check ───
@@ -89,10 +86,10 @@ export default {
       return handleBa(request, url, env, ctx)
     }
     if (path.startsWith('/bing/')) {
-      return handleBing(request, url, env)
+      return handleBing(request, url, env, ctx)
     }
     if (path.startsWith('/hitokoto/')) {
-      return handleHitokoto(request, url, env)
+      return handleHitokoto(request, url, env, ctx)
     }
     if (path.startsWith('/hotsearch/')) {
       return handleHotSearch(request, url, env)

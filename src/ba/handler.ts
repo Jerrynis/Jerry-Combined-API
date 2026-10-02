@@ -2,9 +2,12 @@
 // BA Random Image Handler
 //  · 官方图 (ba随机官方图): 来源 jsDelivr CDN，接口保持不变
 //  · 画师图 (ba随机画师图): 来源 R2 (r2.jerrynis.com)，支持横竖屏参数
+//  · 壁纸   (ba随机壁纸):   来源 jsDelivr CDN (Jerrynis/ba-artist)，横屏/竖屏壁纸
 // ============================================================
 
 import { redirectResponse, jsonResponse, errorResponse } from '../shared';
+import { BA_WALLPAPERS } from './wallpapers';
+import { BA_WALLPAPERS_PORTRAIT } from './wallpapers-portrait';
 
 const CDN_BASE = 'https://cdn.jsdmirror.com/gh/Jerrynis2/image-host@main/public/';
 
@@ -1994,6 +1997,19 @@ function pickArtistUrl(orientation: string | null, seed?: string): string {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
+// ── 壁纸（ba随机壁纸）── jsDelivr CDN，横屏 1042 张 / 竖屏 501 张。
+// 缺省横竖混合随机；orientation=landscape|portrait（或 h/p）时只出对应方向。
+function pickWallpaperUrl(orientation: string | null, seed?: string): string {
+  let pool: string[];
+  const key = orientKey(orientation);
+  if (key === 'landscape') pool = BA_WALLPAPERS;
+  else if (key === 'portrait') pool = BA_WALLPAPERS_PORTRAIT;
+  else if (seed) pool = hashCode(seed) % 2 === 0 ? BA_WALLPAPERS : BA_WALLPAPERS_PORTRAIT;
+  else pool = Math.random() < 0.5 ? BA_WALLPAPERS : BA_WALLPAPERS_PORTRAIT;
+  if (seed) return pool[hashCode(seed) % pool.length];
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
 // 在 Worker 边缘直接拉取并返回图片字节，避免浏览器二次连接；
 // 命中 Cloudflare Cache API 时直接回缓存，重复访问近瞬时。
 const PROXY_TTL = 60 * 60; // 1 小时
@@ -2064,8 +2080,22 @@ export async function handleBa(request: Request, url: URL, env: any, ctx: Execut
     });
   }
 
+  // ── ba随机壁纸（来源 jsDelivr CDN，横竖混合随机，支持 orientation，直接跳转直链）──
+  if (subPath === 'wallpaper' || subPath === 'wallpaper/random') {
+    return redirectResponse(pickWallpaperUrl(orientation, seed || undefined));
+  }
+  if (subPath === 'wallpaper/json') {
+    return jsonResponse({
+      code: 200,
+      message: 'success',
+      url: pickWallpaperUrl(orientation, seed || undefined),
+      source: 'jsdelivr-cdn',
+      orientation: orientKey(orientation) || 'random',
+    });
+  }
+
   return errorResponse(
-    'Unknown BA endpoint: /ba/' + subPath + '. Available: /ba/random, /ba/json, /ba/artist, /ba/artist/json',
+    'Unknown BA endpoint: /ba/' + subPath + '. Available: /ba/random, /ba/json, /ba/artist, /ba/artist/json, /ba/wallpaper, /ba/wallpaper/json',
     404
   );
 }

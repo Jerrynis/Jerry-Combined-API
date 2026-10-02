@@ -3,7 +3,7 @@
 // Returns random quotes from a large embedded collection
 // ============================================================
 
-import { jsonResponse, errorResponse, getCache, setCache } from '../shared'
+import { jsonResponse, errorResponse, withEdgeCache } from '../shared'
 import { hitokotoData, type Hitokoto } from './data'
 
 // Pre-compute category list and index for fast lookup
@@ -17,34 +17,32 @@ for (let i = 0; i < hitokotoData.length; i++) {
   categoryIndex.get(cat)!.push(i)
 }
 
-function getRandomQuote(category?: string): Hitokoto | null {
+// 直接返回数组下标，避免调用方对全量数据做 O(n) indexOf 线性查找
+function getRandomIndex(category?: string): number {
   if (category) {
-    // Try exact match first
     let indices = categoryIndex.get(category)
     if (!indices) {
-      // Try case-insensitive match
       const lowerCat = category.toLowerCase()
       const matchedCat = categories.find(c => c.toLowerCase() === lowerCat)
       if (matchedCat) indices = categoryIndex.get(matchedCat)
     }
-    if (!indices || indices.length === 0) return null
-    const idx = indices[Math.floor(Math.random() * indices.length)]
-    return hitokotoData[idx]
+    if (!indices || indices.length === 0) return -1
+    return indices[Math.floor(Math.random() * indices.length)]
   }
-  const idx = Math.floor(Math.random() * hitokotoData.length)
-  return hitokotoData[idx]
+  return Math.floor(Math.random() * hitokotoData.length)
 }
 
-export async function handleHitokoto(request: Request, url: URL, env: any): Promise<Response> {
+export async function handleHitokoto(request: Request, url: URL, env: any, ctx?: ExecutionContext): Promise<Response> {
   const subPath = url.pathname.replace(/^\/hitokoto\/?/, '').toLowerCase()
 
   // /hitokoto/random or /hitokoto/ → random quote (JSON)
   if (subPath === 'random' || subPath === '') {
     const cat = url.searchParams.get('category') || url.searchParams.get('cat') || undefined
-    const quote = getRandomQuote(cat)
-    if (!quote) {
+    const idx = getRandomIndex(cat)
+    if (idx < 0) {
       return errorResponse(`Category "${cat}" not found. Available: ${categories.join(', ')}`, 404)
     }
+    const quote: Hitokoto = hitokotoData[idx]
 
     // Support ?format=text for plain text response
     const format = url.searchParams.get('format')
@@ -60,7 +58,7 @@ export async function handleHitokoto(request: Request, url: URL, env: any): Prom
       code: 200,
       message: 'success',
       data: {
-        id: hitokotoData.indexOf(quote),
+        id: idx,
         text: quote.text,
         from: quote.from,
         category: quote.category,
