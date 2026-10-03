@@ -2,7 +2,7 @@
 // BA Random Image Handler
 //  · 官方图 (ba随机官方图): 来源 jsDelivr CDN，接口保持不变
 //  · 画师图 (ba随机画师图): 来源 R2 (r2.jerrynis.com)，支持横竖屏参数
-//  · 壁纸   (ba随机壁纸):   来源 jsDelivr CDN (Jerrynis/ba-artist)，横屏/竖屏壁纸
+//  · 壁纸   (ba随机壁纸):   来源 R2 (r2.jerrynis.com)，横屏/竖屏壁纸
 // ============================================================
 
 import { redirectResponse, jsonResponse, errorResponse } from '../shared';
@@ -1997,7 +1997,7 @@ function pickArtistUrl(orientation: string | null, seed?: string): string {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
-// ── 壁纸（ba随机壁纸）── jsDelivr CDN，横屏 1042 张 / 竖屏 501 张。
+// ── 壁纸（ba随机壁纸）── R2 (r2.jerrynis.com)，横屏 1042 张 / 竖屏 501 张。
 // 缺省横竖混合随机；orientation=landscape|portrait（或 h/p）时只出对应方向。
 function pickWallpaperUrl(orientation: string | null, seed?: string): string {
   let pool: string[];
@@ -2080,7 +2080,7 @@ export async function handleBa(request: Request, url: URL, env: any, ctx: Execut
     });
   }
 
-  // ── ba随机壁纸（来源 jsDelivr CDN，横竖混合随机，支持 orientation，直接跳转直链）──
+  // ── ba随机壁纸（来源 R2，横竖混合随机，支持 orientation，直接跳转直链）──
   if (subPath === 'wallpaper' || subPath === 'wallpaper/random') {
     return redirectResponse(pickWallpaperUrl(orientation, seed || undefined));
   }
@@ -2089,7 +2089,7 @@ export async function handleBa(request: Request, url: URL, env: any, ctx: Execut
       code: 200,
       message: 'success',
       url: pickWallpaperUrl(orientation, seed || undefined),
-      source: 'jsdelivr-cdn',
+      source: 'r2-cdn',
       orientation: orientKey(orientation) || 'random',
     });
   }
