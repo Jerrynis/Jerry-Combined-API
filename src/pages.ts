@@ -545,7 +545,7 @@ function infoBox(title: string, items: string[]): string {
 
 export function navPage(): string {
   const cards = [
-    { icon: '🎲', title: 'BA 随机图', desc: 'Blue Archive 随机图片服务，官方图 / 画师图 / 高清壁纸三类，支持 302 重定向与 JSON', tag: '6 端点', href: '/ba' },
+    { icon: '🎲', title: 'BA 随机图', desc: 'Blue Archive 随机图片服务，官方图 / 高清壁纸两类，支持 302 重定向与 JSON', tag: '4 端点', href: '/ba' },
     { icon: '🖼️', title: 'Bing 每日壁纸', desc: '必应每日高清壁纸，支持 UHD、随机、列表等多种格式', tag: '5 端点', href: '/bing' },
     { icon: '🔥', title: '每日热搜', desc: '知乎、微博、B站、头条热搜聚合，B站 WBI 签名鉴权', tag: '5 端点', href: '/hotsearch' },
     { icon: '💭', title: '一言', desc: '582 条语录随机返回，动漫/文学/诗词/电影/哲理/情感/网络', tag: '580+ 条', href: '/hitokoto' },
@@ -630,7 +630,7 @@ export function baDocPage(): string {
     <div class="page-header">
       <a class="back-link" href="/">← 返回首页</a>
       <h1><span class="h-icon">🎲</span> BA 随机图 API</h1>
-      <p class="subtitle">随机 Blue Archive 图片，分「官方图」「画师图」「高清壁纸」三类，支持 302 重定向和 JSON 格式</p>
+      <p class="subtitle">随机 Blue Archive 图片，分「官方图」「高清壁纸」两类，支持 302 重定向和 JSON 格式</p>
     </div>
 
     <div class="section">
@@ -641,9 +641,6 @@ export function baDocPage(): string {
           <tr><td colspan="3" class="table-group">🎨 ba随机官方图（记忆大厅 + 部分剧情）</td></tr>
           <tr><td>${badge('GET')}</td><td><code>/ba/random</code></td><td>302 重定向到随机官方 BA 图片</td></tr>
           <tr><td>${badge('GET')}</td><td><code>/ba/json</code></td><td>JSON 格式返回随机官方图片 URL</td></tr>
-          <tr><td colspan="3" class="table-group">🖌️ ba随机画师图</td></tr>
-          <tr><td>${badge('GET')}</td><td><code>/ba/artist</code></td><td>302 重定向到随机画师 BA 图片</td></tr>
-          <tr><td>${badge('GET')}</td><td><code>/ba/artist/json</code></td><td>JSON 格式返回随机画师图片 URL</td></tr>
           <tr><td colspan="3" class="table-group">🖥️ ba随机壁纸（横屏 + 竖屏）</td></tr>
           <tr><td>${badge('GET')}</td><td><code>/ba/wallpaper</code></td><td>302 重定向到随机 BA 壁纸（横竖混合）</td></tr>
           <tr><td>${badge('GET')}</td><td><code>/ba/wallpaper/json</code></td><td>JSON 格式返回随机壁纸 URL</td></tr>
@@ -656,17 +653,16 @@ export function baDocPage(): string {
       <div class="table-wrap"><table>
         <thead><tr><th>参数</th><th>适用端点</th><th>取值</th><th>说明</th></tr></thead>
         <tbody>
-          <tr><td><code>orientation</code></td><td>画师图 / 壁纸</td><td><code>landscape</code> / <code>portrait</code></td><td>横屏 / 竖屏；不传则横竖随机</td></tr>
+          <tr><td><code>orientation</code></td><td>壁纸</td><td><code>landscape</code> / <code>portrait</code></td><td>横屏 / 竖屏；不传则横竖随机</td></tr>
           <tr><td><code>t</code> / <code>ts</code></td><td>全部</td><td>任意字符串（如时间戳）</td><td>种子：同一值固定返回同一张图，缺省则随机</td></tr>
         </tbody>
       </table></div>
-      <p style="margin-top:.6rem;color:var(--text-2);font-size:.9rem">orientation 也支持 <code>horizontal</code>、<code>vertical</code>、<code>h</code>、<code>v</code>、<code>横屏</code>、<code>竖屏</code> 等写法；壁纸、画师图不传该参数时横竖混合随机。</p>
+      <p style="margin-top:.6rem;color:var(--text-2);font-size:.9rem">orientation 也支持 <code>horizontal</code>、<code>vertical</code>、<code>h</code>、<code>v</code>、<code>横屏</code>、<code>竖屏</code> 等写法；壁纸不传该参数时横竖混合随机。</p>
     </div>
 
     <div class="section">
       <h2 class="section-title">使用示例</h2>
       ${codeBlock('GET /ba/random', '官方图 · 302 重定向')}
-      ${codeBlock('GET /ba/artist?orientation=landscape', '画师图 · 横屏 302 重定向')}
       ${codeBlock('GET /ba/wallpaper', '壁纸 · 横竖混合随机 302 重定向')}
       ${codeBlock('GET /ba/wallpaper?orientation=landscape', '壁纸 · 仅横屏 302 重定向')}
       ${codeBlock('GET /ba/wallpaper?orientation=portrait', '壁纸 · 仅竖屏 302 重定向')}
@@ -676,19 +672,16 @@ export function baDocPage(): string {
     <div class="section">
       <h2 class="section-title">响应示例</h2>
       ${codeBlock('{\n  "code": 200,\n  "message": "success",\n  "url": "https://.../74955ca0-6c54-4fa3-a634-230f5cd2e25a.png"\n}', '/ba/json 响应')}
-      ${codeBlock('{\n  "code": 200,\n  "message": "success",\n  "url": "https://.../0052205a-054a-44b1-9e2b-185edf1fa8e3.jpg",\n  "orientation": "landscape"\n}', '/ba/artist/json 响应')}
       ${codeBlock('{\n  "code": 200,\n  "message": "success",\n  "url": "https://.../BA_001_8060x5691.webp",\n  "orientation": "landscape"\n}', '/ba/wallpaper/json 响应')}
     </div>
 
     ${infoBox('详细信息', [
       '官方图：记忆大厅 + 部分剧情场景的随机图片',
-      '画师图：共 1600 张，横屏 273 张 / 竖屏 1327 张，支持 orientation 参数',
       '壁纸：横屏 1042 张（最高 8060×5691）+ 竖屏 501 张（最高 6600×10327），均为 .webp；默认横竖混合随机，可用 orientation 指定方向',
     ])}
 
     <div style="margin-top: 1.5rem; display: flex; gap: 1rem; flex-wrap: wrap;">
       <a class="try-btn" href="/ba/json" target="_blank">官方图 JSON →</a>
-      <a class="try-btn ghost" href="/ba/artist/json" target="_blank">画师图 JSON →</a>
       <a class="try-btn ghost" href="/ba/wallpaper/json" target="_blank">壁纸 JSON →</a>
     </div>
 
@@ -698,7 +691,6 @@ export function baDocPage(): string {
         <div class="preview-controls">
           <select class="preview-select" id="baSource" onchange="loadBaPreview()">
             <option value="/ba/json">官方图</option>
-            <option value="/ba/artist/json">画师图</option>
             <option value="/ba/wallpaper/json">壁纸</option>
           </select>
           <button class="preview-btn" id="baPreviewBtn" onclick="loadBaPreview()">🔄 刷新随机图片</button>
