@@ -553,7 +553,7 @@ function infoBox(title: string, items: string[]): string {
 export function navPage(): string {
   const cards = [
     { icon: '🎲', title: 'BA 随机图', desc: 'Blue Archive 随机图片服务，官方图 / 高清壁纸两类，支持 302 重定向与 JSON', tag: '4 端点', href: '/ba' },
-    { icon: '🌸', title: '二次元随机图', desc: '精选二次元高清插画，横竖各 1600 张，自动适配设备方向', tag: '2 端点', href: '/anime' },
+    { icon: '🌸', title: '二次元随机图', desc: '精选二次元高清插画，横屏 6600 张 / 竖屏 1600 张，自动适配设备方向', tag: '2 端点', href: '/anime' },
     { icon: '🖼️', title: 'Bing 每日壁纸', desc: '必应每日高清壁纸，支持 UHD、随机、列表等多种格式', tag: '5 端点', href: '/bing' },
     { icon: '🔥', title: '每日热搜', desc: '知乎、微博、B站、头条热搜聚合，B站 WBI 签名鉴权', tag: '5 端点', href: '/hotsearch' },
     { icon: '💭', title: '一言', desc: '582 条语录随机返回，动漫/文学/诗词/电影/哲理/情感/网络', tag: '580+ 条', href: '/hitokoto' },
@@ -733,7 +733,7 @@ export function animeDocPage(): string {
     <div class="page-header">
       <a class="back-link" href="/">← 返回首页</a>
       <h1><span class="h-icon">🌸</span> 二次元随机图 API</h1>
-      <p class="subtitle">精选二次元高清插画随机返回，横竖各 1600 张，自动适配设备方向，支持 302 重定向和 JSON 格式</p>
+      <p class="subtitle">精选二次元高清插画随机返回，横屏 6600 张 / 竖屏 1600 张，自动适配设备方向，支持 302 重定向和 JSON 格式</p>
     </div>
 
     <div class="section">
@@ -775,7 +775,7 @@ export function animeDocPage(): string {
     </div>
 
     ${infoBox('详细信息', [
-      '插画：横屏 1600 张（最大 8060×6480）+ 竖屏 1600 张（最大 6704×9597），均为 .webp 直链',
+      '插画：横屏 6600 张（最大 8060×7140）+ 竖屏 1600 张（最大 6704×9597），均为 .webp 直链',
       '默认按设备自动适配横竖屏，可用 orientation 强制指定方向；t / ts 传时间戳可固定返回同一张图',
       '图片端点返回 302，浏览器再直连图床取图，Worker 只负责选图，不过图片字节',
     ])}
