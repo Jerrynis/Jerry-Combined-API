@@ -4,7 +4,7 @@
 //  · 壁纸   (ba随机壁纸):   来源 R2 (r2.jerrynis.com)，横屏/竖屏壁纸
 // ============================================================
 
-import { redirectResponse, jsonResponse, errorResponse, pickFromPool, resolveOrientation, type Orientation } from '../shared';
+import { jsonResponse, errorResponse, pickFromPool, resolveOrientation, proxyImage, endpointUrl, type Orientation } from '../shared';
 import { BA_WALLPAPERS } from './wallpapers';
 import { BA_WALLPAPERS_PORTRAIT } from './wallpapers-portrait';
 
@@ -384,74 +384,37 @@ function pickWallpaperUrl(key: Orientation, seed?: string): string {
   return pickFromPool(key === 'landscape' ? BA_WALLPAPERS : BA_WALLPAPERS_PORTRAIT, seed);
 }
 
-// 在 Worker 边缘直接拉取并返回图片字节，避免浏览器二次连接；
-// 命中 Cloudflare Cache API 时直接回缓存，重复访问近瞬时。
-const PROXY_TTL = 60 * 60; // 1 小时
-
-// 随机图接口的响应禁止浏览器缓存，否则刷新会一直命中本地缓存而不换图。
-// 服务端仍通过 Cache API 按图片 URL 缓存字节（命中即回），只对客户端响应改为 no-store。
-function serveImage(response: Response): Response {
-  const h = new Headers(response.headers);
-  h.set('Cache-Control', 'no-store');
-  return new Response(response.body, { status: response.status, headers: h });
-}
-
-async function proxyImage(imageUrl: string, ctx: ExecutionContext): Promise<Response> {
-  const cache = caches.default;
-  const req = new Request(imageUrl);
-
-  const hit = await cache.match(req);
-  if (hit) {
-    const h = new Headers(hit.headers);
-    h.set('Access-Control-Allow-Origin', '*');
-    return serveImage(new Response(hit.body, { status: hit.status, headers: h }));
-  }
-
-  const upstream = await fetch(req);
-  if (!upstream.ok) {
-    return redirectResponse(imageUrl);
-  }
-
-  const h = new Headers(upstream.headers);
-  h.set('Cache-Control', `public, max-age=${PROXY_TTL}`);
-  h.set('Access-Control-Allow-Origin', '*');
-  const out = new Response(upstream.body, { status: upstream.status, headers: h });
-  ctx.waitUntil(cache.put(req, out.clone()));
-  return serveImage(new Response(out.body, { status: out.status, headers: new Headers(out.headers) }));
-}
-
 export async function handleBa(request: Request, url: URL, env: any, ctx: ExecutionContext): Promise<Response> {
   const subPath = url.pathname.replace(/^\/ba\/?/, '').toLowerCase();
   const orientation = url.searchParams.get('orientation');
   // 时间戳种子：提供 t 或 ts 时，同一值固定返回同一张图；缺省则随机
   const seed = url.searchParams.get('t') || url.searchParams.get('ts');
 
-  // ── ba随机官方图（接口保持 /ba/random，直接 302 跳转到图片直链）──
+  // ── ba随机官方图（/ba/random 由 Worker 直接返回图片字节，地址不跳图床）──
   if (subPath === 'random' || subPath === 'ba' || subPath === '') {
-    return redirectResponse(getRandomImageUrl(seed || undefined));
+    return proxyImage(getRandomImageUrl(seed || undefined), ctx);
   }
   if (subPath === 'json') {
-    const imageUrl = getRandomImageUrl(seed || undefined);
     return jsonResponse({
       code: 200,
       message: 'success',
-      url: imageUrl,
-      source: 'r2-cdn',
+      url: endpointUrl(url, '/ba/random', null, seed),
+      type: 'image',
     });
   }
 
 
-  // ── ba随机壁纸（来源 R2，默认按设备自动适配横竖屏，可用 orientation=landscape|portrait 强制，直接跳转直链）──
+  // ── ba随机壁纸（默认按设备自动适配横竖屏，可用 orientation 强制，同样直接返回图片字节）──
   const oKey = resolveOrientation(orientation, request);
   if (subPath === 'wallpaper' || subPath === 'wallpaper/random') {
-    return redirectResponse(pickWallpaperUrl(oKey, seed || undefined));
+    return proxyImage(pickWallpaperUrl(oKey, seed || undefined), ctx);
   }
   if (subPath === 'wallpaper/json') {
     return jsonResponse({
       code: 200,
       message: 'success',
-      url: pickWallpaperUrl(oKey, seed || undefined),
-      source: 'r2-cdn',
+      url: endpointUrl(url, '/ba/wallpaper', orientation, seed),
+      type: 'image',
       orientation: oKey,
     });
   }

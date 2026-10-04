@@ -156,3 +156,47 @@ export function resolveOrientation(orientation: string | null, request: Request)
   if (v === 'auto' || v === '\u81ea\u52a8') return autoOrientation(request);
   return orientKey(orientation) || autoOrientation(request);
 }
+
+// ─── 图片代理（BA / 二次元共用）───
+// 在 Worker 边缘直接拉取图床字节并返回，浏览器地址栏与响应里都不出现图床域名；
+// 按图片 URL 命中 Cloudflare Cache API，重复访问近瞬时。
+const IMAGE_PROXY_TTL = 60 * 60; // 1 小时
+
+// 客户端响应禁止缓存，否则刷新会一直命中本地缓存而不换图；服务端仍按图片 URL 缓存字节。
+function toClientResponse(response: Response): Response {
+  const h = new Headers(response.headers);
+  h.set('Cache-Control', 'no-store');
+  return new Response(response.body, { status: response.status, headers: h });
+}
+
+export async function proxyImage(imageUrl: string, ctx: ExecutionContext): Promise<Response> {
+  const cache = caches.default;
+  const req = new Request(imageUrl);
+
+  const hit = await cache.match(req);
+  if (hit) {
+    const h = new Headers(hit.headers);
+    h.set('Access-Control-Allow-Origin', '*');
+    return toClientResponse(new Response(hit.body, { status: hit.status, headers: h }));
+  }
+
+  const upstream = await fetch(req);
+  if (!upstream.ok) {
+    return redirectResponse(imageUrl);
+  }
+
+  const h = new Headers(upstream.headers);
+  h.set('Cache-Control', `public, max-age=${IMAGE_PROXY_TTL}`);
+  h.set('Access-Control-Allow-Origin', '*');
+  const out = new Response(upstream.body, { status: upstream.status, headers: h });
+  ctx.waitUntil(cache.put(req, out.clone()));
+  return toClientResponse(new Response(out.body, { status: out.status, headers: new Headers(out.headers) }));
+}
+
+// JSON 响应里回给调用方的图片地址：指向本站端点，而不是图床直链
+export function endpointUrl(url: URL, path: string, orientation: string | null, seed: string | null): string {
+  const u = new URL(url.origin + path);
+  if (orientation) u.searchParams.set('orientation', orientation);
+  if (seed) u.searchParams.set('t', seed);
+  return u.toString();
+}
