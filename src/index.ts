@@ -92,7 +92,7 @@ export default {
       return handleBa(request, url, env, ctx)
     }
     if (path.startsWith('/anime/')) {
-      return handleAnime(request, url, ctx)
+      return handleAnime(request, url)
     }
     if (path.startsWith('/bing/')) {
       return handleBing(request, url, env, ctx)

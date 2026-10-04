@@ -4,7 +4,7 @@
 //  · 壁纸   (ba随机壁纸):   来源 R2 (r2.jerrynis.com)，横屏/竖屏壁纸
 // ============================================================
 
-import { jsonResponse, errorResponse, pickFromPool, resolveOrientation, proxyImage, endpointUrl, type Orientation } from '../shared';
+import { redirectResponse, jsonResponse, errorResponse, pickFromPool, resolveOrientation, type Orientation } from '../shared';
 import { BA_WALLPAPERS } from './wallpapers';
 import { BA_WALLPAPERS_PORTRAIT } from './wallpapers-portrait';
 
@@ -390,31 +390,31 @@ export async function handleBa(request: Request, url: URL, env: any, ctx: Execut
   // 时间戳种子：提供 t 或 ts 时，同一值固定返回同一张图；缺省则随机
   const seed = url.searchParams.get('t') || url.searchParams.get('ts');
 
-  // ── ba随机官方图（/ba/random 由 Worker 直接返回图片字节，地址不跳图床）──
+  // ── ba随机官方图（接口保持 /ba/random，直接 302 跳转到图片直链）──
   if (subPath === 'random' || subPath === 'ba' || subPath === '') {
-    return proxyImage(getRandomImageUrl(seed || undefined), ctx);
+    return redirectResponse(getRandomImageUrl(seed || undefined));
   }
   if (subPath === 'json') {
     return jsonResponse({
       code: 200,
       message: 'success',
-      url: endpointUrl(url, '/ba/random', null, seed),
-      type: 'image',
+      url: getRandomImageUrl(seed || undefined),
+      source: 'r2-cdn',
     });
   }
 
 
-  // ── ba随机壁纸（默认按设备自动适配横竖屏，可用 orientation 强制，同样直接返回图片字节）──
+  // ── ba随机壁纸（来源 R2，默认按设备自动适配横竖屏，可用 orientation=landscape|portrait 强制，直接跳转直链）──
   const oKey = resolveOrientation(orientation, request);
   if (subPath === 'wallpaper' || subPath === 'wallpaper/random') {
-    return proxyImage(pickWallpaperUrl(oKey, seed || undefined), ctx);
+    return redirectResponse(pickWallpaperUrl(oKey, seed || undefined));
   }
   if (subPath === 'wallpaper/json') {
     return jsonResponse({
       code: 200,
       message: 'success',
-      url: endpointUrl(url, '/ba/wallpaper', orientation, seed),
-      type: 'image',
+      url: pickWallpaperUrl(oKey, seed || undefined),
+      source: 'r2-cdn',
       orientation: oKey,
     });
   }

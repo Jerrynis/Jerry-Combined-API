@@ -552,7 +552,7 @@ function infoBox(title: string, items: string[]): string {
 
 export function navPage(): string {
   const cards = [
-    { icon: '🎲', title: 'BA 随机图', desc: 'Blue Archive 随机图片服务，官方图 / 高清壁纸两类，直接返回图片，也可取 JSON', tag: '4 端点', href: '/ba' },
+    { icon: '🎲', title: 'BA 随机图', desc: 'Blue Archive 随机图片服务，官方图 / 高清壁纸两类，支持 302 重定向与 JSON', tag: '4 端点', href: '/ba' },
     { icon: '🌸', title: '二次元随机图', desc: '精选二次元高清插画，横竖各 1600 张，自动适配设备方向', tag: '2 端点', href: '/anime' },
     { icon: '🖼️', title: 'Bing 每日壁纸', desc: '必应每日高清壁纸，支持 UHD、随机、列表等多种格式', tag: '5 端点', href: '/bing' },
     { icon: '🔥', title: '每日热搜', desc: '知乎、微博、B站、头条热搜聚合，B站 WBI 签名鉴权', tag: '5 端点', href: '/hotsearch' },
@@ -614,11 +614,9 @@ function loadPreview() {
         btnEl.disabled = false;
         btnEl.textContent = '\\ud83d\\udd04 \\u5237\\u65b0\\u968f\\u673a\\u56fe\\u7247';
       }
-      // 图片 URL 固定指向本站端点，加唯一参数强制浏览器重新取图
-      var src = data.url + (data.url.indexOf('?') >= 0 ? '&' : '?') + '_r=' + Date.now() + Math.floor(Math.random() * 1000);
       var extra = data.orientation ? ' · ' + data.orientation : '';
       body.innerHTML = '<div class="preview-result">'
-        + '<div class="preview-image-frame" id="pvFrame"><img class="preview-image" id="pvImg" src="' + src + '" alt="${caption}"></div>'
+        + '<div class="preview-image-frame" id="pvFrame"><img class="preview-image" id="pvImg" src="' + data.url + '" alt="${caption}"></div>'
         + '<div class="preview-image-info"><span class="cap">${caption}</span> · 随机图片已加载' + extra + '</div>'
         + '</div>';
       var img = document.getElementById('pvImg');
@@ -649,7 +647,7 @@ export function baDocPage(): string {
     <div class="page-header">
       <a class="back-link" href="/">← 返回首页</a>
       <h1><span class="h-icon">🎲</span> BA 随机图 API</h1>
-      <p class="subtitle">随机 Blue Archive 图片，分「官方图」「高清壁纸」两类，由 Worker 直接返回图片（地址不跳图床），也可取 JSON</p>
+      <p class="subtitle">随机 Blue Archive 图片，分「官方图」「高清壁纸」两类，支持 302 重定向和 JSON 格式</p>
     </div>
 
     <div class="section">
@@ -658,11 +656,11 @@ export function baDocPage(): string {
         <thead><tr><th>方法</th><th>路径</th><th>说明</th></tr></thead>
         <tbody>
           <tr><td colspan="3" class="table-group">🎨 ba随机官方图（记忆大厅 + 部分剧情）</td></tr>
-          <tr><td>${badge('GET')}</td><td><code>/ba/random</code></td><td>直接返回随机官方 BA 图片（image/webp，不跳转图床）</td></tr>
-          <tr><td>${badge('GET')}</td><td><code>/ba/json</code></td><td>JSON 返回图片地址（指向本站端点）</td></tr>
+          <tr><td>${badge('GET')}</td><td><code>/ba/random</code></td><td>302 重定向到随机官方 BA 图片</td></tr>
+          <tr><td>${badge('GET')}</td><td><code>/ba/json</code></td><td>JSON 格式返回随机官方图片 URL</td></tr>
           <tr><td colspan="3" class="table-group">🖥️ ba随机壁纸（横屏 + 竖屏）</td></tr>
-          <tr><td>${badge('GET')}</td><td><code>/ba/wallpaper</code></td><td>直接返回随机 BA 壁纸（自动适配横竖屏，不跳转图床）</td></tr>
-          <tr><td>${badge('GET')}</td><td><code>/ba/wallpaper/json</code></td><td>JSON 返回壁纸地址与实际方向</td></tr>
+          <tr><td>${badge('GET')}</td><td><code>/ba/wallpaper</code></td><td>302 重定向到随机 BA 壁纸（自动适配横竖屏）</td></tr>
+          <tr><td>${badge('GET')}</td><td><code>/ba/wallpaper/json</code></td><td>JSON 格式返回随机壁纸 URL</td></tr>
         </tbody>
       </table></div>
     </div>
@@ -682,24 +680,24 @@ export function baDocPage(): string {
 
     <div class="section">
       <h2 class="section-title">使用示例</h2>
-      ${codeBlock('GET /ba/random', '官方图 · 直接返回图片')}
-      ${codeBlock('GET /ba/wallpaper', '壁纸 · 自动适配横竖屏，直接返回图片')}
-      ${codeBlock('GET /ba/wallpaper?orientation=landscape', '壁纸 · 仅横屏')}
-      ${codeBlock('GET /ba/wallpaper?orientation=portrait', '壁纸 · 仅竖屏')}
+      ${codeBlock('GET /ba/random', '官方图 · 302 重定向')}
+      ${codeBlock('GET /ba/wallpaper', '壁纸 · 自动适配横竖屏 302 重定向')}
+      ${codeBlock('GET /ba/wallpaper?orientation=landscape', '壁纸 · 仅横屏 302 重定向')}
+      ${codeBlock('GET /ba/wallpaper?orientation=portrait', '壁纸 · 仅竖屏 302 重定向')}
       ${codeBlock('GET /ba/wallpaper?t=1728000000', '壁纸 · 时间戳固定，同值恒为同一张')}
       ${codeBlock('GET /ba/wallpaper/json', '壁纸 · JSON 响应（同样自动适配）')}
     </div>
 
     <div class="section">
       <h2 class="section-title">响应示例</h2>
-      ${codeBlock('{\n  "code": 200,\n  "message": "success",\n  "url": "https://.../ba/random",\n  "type": "image"\n}', '/ba/json 响应')}
-      ${codeBlock('{\n  "code": 200,\n  "message": "success",\n  "url": "https://.../ba/wallpaper",\n  "type": "image",\n  "orientation": "landscape"\n}', '/ba/wallpaper/json 响应')}
+      ${codeBlock('{\n  "code": 200,\n  "message": "success",\n  "url": "https://.../74955ca0-6c54-4fa3-a634-230f5cd2e25a.webp",\n  "source": "r2-cdn"\n}', '/ba/json 响应')}
+      ${codeBlock('{\n  "code": 200,\n  "message": "success",\n  "url": "https://.../BA_001_8060x5691.webp",\n  "source": "r2-cdn",\n  "orientation": "landscape"\n}', '/ba/wallpaper/json 响应')}
     </div>
 
     ${infoBox('详细信息', [
       '官方图：记忆大厅 + 部分剧情场景的随机图片',
       '壁纸：横屏 1042 张（最高 8060×5691）+ 竖屏 501 张（最高 6600×10327），均为 .webp；默认按设备自动适配横竖屏，可用 orientation 强制指定',
-      '图片由 Worker 直接返回字节，浏览器地址栏与 JSON 里都不会出现图床域名；同一张图在边缘缓存命中后近瞬时返回',
+      '图片端点返回 302，浏览器再直连图床取图，Worker 只负责选图，不过图片字节',
     ])}
 
     <div style="margin-top: 1.5rem; display: flex; gap: 1rem; flex-wrap: wrap;">
@@ -735,7 +733,7 @@ export function animeDocPage(): string {
     <div class="page-header">
       <a class="back-link" href="/">← 返回首页</a>
       <h1><span class="h-icon">🌸</span> 二次元随机图 API</h1>
-      <p class="subtitle">精选二次元高清插画随机返回，横竖各 1600 张，自动适配设备方向，由 Worker 直接返回图片（地址不跳图床），也可取 JSON</p>
+      <p class="subtitle">精选二次元高清插画随机返回，横竖各 1600 张，自动适配设备方向，支持 302 重定向和 JSON 格式</p>
     </div>
 
     <div class="section">
@@ -743,8 +741,8 @@ export function animeDocPage(): string {
       <div class="table-wrap"><table>
         <thead><tr><th>方法</th><th>路径</th><th>说明</th></tr></thead>
         <tbody>
-          <tr><td>${badge('GET')}</td><td><code>/anime/random</code></td><td>直接返回随机插画（image/webp，自动适配横竖屏，不跳转图床）</td></tr>
-          <tr><td>${badge('GET')}</td><td><code>/anime/json</code></td><td>JSON 返回图片地址（指向本站端点）与实际方向</td></tr>
+          <tr><td>${badge('GET')}</td><td><code>/anime/random</code></td><td>302 重定向到随机插画（自动适配横竖屏）</td></tr>
+          <tr><td>${badge('GET')}</td><td><code>/anime/json</code></td><td>JSON 格式返回插画 URL 与实际方向</td></tr>
         </tbody>
       </table></div>
     </div>
@@ -764,22 +762,22 @@ export function animeDocPage(): string {
 
     <div class="section">
       <h2 class="section-title">使用示例</h2>
-      ${codeBlock('GET /anime/random', '插画 · 自动适配横竖屏，直接返回图片')}
-      ${codeBlock('GET /anime/random?orientation=landscape', '插画 · 仅横屏')}
-      ${codeBlock('GET /anime/random?orientation=portrait', '插画 · 仅竖屏')}
+      ${codeBlock('GET /anime/random', '插画 · 自动适配横竖屏 302 重定向')}
+      ${codeBlock('GET /anime/random?orientation=landscape', '插画 · 仅横屏 302 重定向')}
+      ${codeBlock('GET /anime/random?orientation=portrait', '插画 · 仅竖屏 302 重定向')}
       ${codeBlock('GET /anime/random?t=1728000000', '插画 · 时间戳固定，同值恒为同一张')}
       ${codeBlock('GET /anime/json', '插画 · JSON 响应')}
     </div>
 
     <div class="section">
       <h2 class="section-title">响应示例</h2>
-      ${codeBlock('{\n  "code": 200,\n  "message": "success",\n  "url": "https://.../anime/random",\n  "type": "image",\n  "orientation": "landscape"\n}', '/anime/json 响应')}
+      ${codeBlock('{\n  "code": 200,\n  "message": "success",\n  "url": "https://.../AL_0001_6000x4500.webp",\n  "source": "r2-cdn",\n  "orientation": "landscape"\n}', '/anime/json 响应')}
     </div>
 
     ${infoBox('详细信息', [
-      '插画：横屏 1600 张（最大 8060×6480）+ 竖屏 1600 张（最大 6704×9597），均为 .webp',
+      '插画：横屏 1600 张（最大 8060×6480）+ 竖屏 1600 张（最大 6704×9597），均为 .webp 直链',
       '默认按设备自动适配横竖屏，可用 orientation 强制指定方向；t / ts 传时间戳可固定返回同一张图',
-      '图片由 Worker 直接返回字节，浏览器地址栏与 JSON 里都不会出现图床域名；同一张图在边缘缓存命中后近瞬时返回',
+      '图片端点返回 302，浏览器再直连图床取图，Worker 只负责选图，不过图片字节',
     ])}
 
     <div style="margin-top: 1.5rem; display: flex; gap: 1rem; flex-wrap: wrap;">
