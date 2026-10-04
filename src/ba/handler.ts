@@ -4,7 +4,7 @@
 //  · 壁纸   (ba随机壁纸):   来源 R2 (r2.jerrynis.com)，横屏/竖屏壁纸
 // ============================================================
 
-import { redirectResponse, jsonResponse, errorResponse } from '../shared';
+import { redirectResponse, jsonResponse, errorResponse, pickFromPool, resolveOrientation, type Orientation } from '../shared';
 import { BA_WALLPAPERS } from './wallpapers';
 import { BA_WALLPAPERS_PORTRAIT } from './wallpapers-portrait';
 
@@ -374,40 +374,14 @@ https://r2.jerrynis.com/official/ff80df7c-eb65-4e05-b7cb-e6b238be8f09.webp
 `.split(String.fromCharCode(10)).filter(Boolean);
 
 
-// deterministic 32-bit hash，用于按时间戳稳定选出同一张图
-function hashCode(s: string): number {
-  let h = 0
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
-  return h >>> 0
-}
-
 // seed 存在时按 seed 稳定挑图；否则随机
 function getRandomImageUrl(seed?: string): string {
-  const filename = seed
-    ? BA_IMAGES[hashCode(seed) % BA_IMAGES.length]
-    : BA_IMAGES[Math.floor(Math.random() * BA_IMAGES.length)];
-  return filename;
+  return pickFromPool(BA_IMAGES, seed);
 }
-
-function orientKey(o: string | null): string | null {
-  const v = (o || '').toLowerCase();
-  if (v === 'landscape' || v === 'horizontal' || v === 'h' || v === '\u6a2a\u5c4f') return 'landscape';
-  if (v === 'portrait' || v === 'vertical' || v === 'v' || v === '\u7ad6\u5c4f' || v === 'p') return 'portrait';
-  return null;
-}
-
 
 // ── 壁纸（ba随机壁纸）── R2 (r2.jerrynis.com)，横屏 1042 张 / 竖屏 501 张。
-// 缺省横竖混合随机；orientation=landscape|portrait（或 h/p）时只出对应方向。
-function pickWallpaperUrl(orientation: string | null, seed?: string): string {
-  let pool: string[];
-  const key = orientKey(orientation);
-  if (key === 'landscape') pool = BA_WALLPAPERS;
-  else if (key === 'portrait') pool = BA_WALLPAPERS_PORTRAIT;
-  else if (seed) pool = hashCode(seed) % 2 === 0 ? BA_WALLPAPERS : BA_WALLPAPERS_PORTRAIT;
-  else pool = Math.random() < 0.5 ? BA_WALLPAPERS : BA_WALLPAPERS_PORTRAIT;
-  if (seed) return pool[hashCode(seed) % pool.length];
-  return pool[Math.floor(Math.random() * pool.length)];
+function pickWallpaperUrl(key: Orientation, seed?: string): string {
+  return pickFromPool(key === 'landscape' ? BA_WALLPAPERS : BA_WALLPAPERS_PORTRAIT, seed);
 }
 
 // 在 Worker 边缘直接拉取并返回图片字节，避免浏览器二次连接；
@@ -467,17 +441,18 @@ export async function handleBa(request: Request, url: URL, env: any, ctx: Execut
   }
 
 
-  // ── ba随机壁纸（来源 R2，横竖混合随机，支持 orientation，直接跳转直链）──
+  // ── ba随机壁纸（来源 R2，默认按设备自动适配横竖屏，可用 orientation=landscape|portrait 强制，直接跳转直链）──
+  const oKey = resolveOrientation(orientation, request);
   if (subPath === 'wallpaper' || subPath === 'wallpaper/random') {
-    return redirectResponse(pickWallpaperUrl(orientation, seed || undefined));
+    return redirectResponse(pickWallpaperUrl(oKey, seed || undefined));
   }
   if (subPath === 'wallpaper/json') {
     return jsonResponse({
       code: 200,
       message: 'success',
-      url: pickWallpaperUrl(orientation, seed || undefined),
+      url: pickWallpaperUrl(oKey, seed || undefined),
       source: 'r2-cdn',
-      orientation: orientKey(orientation) || 'random',
+      orientation: oKey,
     });
   }
 

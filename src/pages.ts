@@ -312,7 +312,7 @@ code {
 .preview-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 .preview-body { padding: 1.3rem; min-height: 90px; display: flex; align-items: center; justify-content: center; }
 /* BA 在线预览：固定外框高度，空/加载/已加载三种状态尺寸一致，不塌陷不跳动 */
-#baPreviewBody { min-height: 470px; }
+#pvBody { min-height: 470px; }
 .preview-loading { display: flex; align-items: center; gap: 0.6rem; color: var(--text-2); font-size: 0.9rem; }
 .preview-spinner { width: 22px; height: 22px; border: 2px solid var(--stroke); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -467,6 +467,12 @@ function copyText(text, btn) {
 function esc(s) {
   return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
+// 复制使用示例时：去掉请求方法前缀，把路径补成当前域名下的完整链接
+function copyCode(raw, btn) {
+  var t = String(raw).replace(/^\\s*(GET|POST|PUT|DELETE|HEAD|OPTIONS|PATCH)\\s+/i, '');
+  if (t.charAt(0) === '/') t = location.origin + t;
+  copyText(t, btn);
+}
 `
 
 // ─── Helpers ───
@@ -479,6 +485,7 @@ function navBar(active: string): string {
   const items = [
     { href: '/', label: '首页', key: 'home' },
     { href: '/ba', label: 'BA 随机图', key: 'ba' },
+    { href: '/anime', label: '二次元随机图', key: 'anime' },
     { href: '/bing', label: 'Bing 壁纸', key: 'bing' },
     { href: '/hotsearch', label: '每日热搜', key: 'hotsearch' },
     { href: '/hitokoto', label: '一言', key: 'hitokoto' },
@@ -530,7 +537,7 @@ function codeBlock(code: string, label: string = ''): string {
   return `<div class="code-block">
     <div class="code-header">
       <span>${label}</span>
-      <button class="copy-btn" data-code="${escaped}" onclick="copyText(this.getAttribute('data-code'), this)">复制</button>
+      <button class="copy-btn" data-code="${escaped}" onclick="copyCode(this.getAttribute('data-code'), this)">复制</button>
     </div>
     <pre>${escaped}</pre>
   </div>`
@@ -546,6 +553,7 @@ function infoBox(title: string, items: string[]): string {
 export function navPage(): string {
   const cards = [
     { icon: '🎲', title: 'BA 随机图', desc: 'Blue Archive 随机图片服务，官方图 / 高清壁纸两类，支持 302 重定向与 JSON', tag: '4 端点', href: '/ba' },
+    { icon: '🌸', title: '二次元随机图', desc: '精选二次元高清插画，横竖各 1600 张，自动适配设备方向', tag: '2 端点', href: '/anime' },
     { icon: '🖼️', title: 'Bing 每日壁纸', desc: '必应每日高清壁纸，支持 UHD、随机、列表等多种格式', tag: '5 端点', href: '/bing' },
     { icon: '🔥', title: '每日热搜', desc: '知乎、微博、B站、头条热搜聚合，B站 WBI 签名鉴权', tag: '5 端点', href: '/hotsearch' },
     { icon: '💭', title: '一言', desc: '582 条语录随机返回，动漫/文学/诗词/电影/哲理/情感/网络', tag: '580+ 条', href: '/hitokoto' },
@@ -564,8 +572,8 @@ export function navPage(): string {
   const content = `
     <div class="hero">
       <span class="eyebrow"><span class="pulse"></span> Jerry Combined API · 在线服务</span>
-      <h1>六合一 API 服务</h1>
-      <p class="sub">图片 · 壁纸 · 热搜 · 一言 · 音乐 · 天气，一个入口全部搞定，轻盈部署于 Cloudflare Workers。</p>
+      <h1>七合一 API 服务</h1>
+      <p class="sub">图片 · 壁纸 · 插画 · 热搜 · 一言 · 音乐 · 天气，一个入口全部搞定，轻盈部署于 Cloudflare Workers。</p>
       <div class="badges">
         <span class="hero-badge">Cloudflare Workers</span>
         <span class="hero-badge">TypeScript</span>
@@ -574,10 +582,10 @@ export function navPage(): string {
         <span class="hero-badge">零依赖</span>
       </div>
       <div class="hero-stats">
-        <div class="hero-stat"><div class="num">6</div><div class="lbl">模块</div></div>
+        <div class="hero-stat"><div class="num">7</div><div class="lbl">模块</div></div>
         <div class="hero-stat"><div class="num">130+</div><div class="lbl">端点</div></div>
         <div class="hero-stat"><div class="num">580+</div><div class="lbl">语录</div></div>
-        <div class="hero-stat"><div class="num">2500+</div><div class="lbl">图片</div></div>
+        <div class="hero-stat"><div class="num">5100+</div><div class="lbl">图片</div></div>
       </div>
     </div>
     <div class="cards-grid">${cardHtml}</div>
@@ -585,31 +593,34 @@ export function navPage(): string {
   return page('首页', 'home', content)
 }
 
-// ─── BA Random Image Docs ───
+// ─── 随机图片文档（BA / 二次元）───
 
-const baPreviewScript = `
-function loadBaPreview() {
-  var btn = document.getElementById('baPreviewBtn');
-  var body = document.getElementById('baPreviewBody');
-  var sel = document.getElementById('baSource');
-  var endpoint = sel ? sel.value : '/ba/json';
+// 随机图片在线预览脚本：BA 与二次元共用同一套控件 id（pvSource / pvBtn / pvBody）
+function imagePreviewScript(defaultEndpoint: string, caption: string): string {
+  return `
+function loadPreview() {
+  var btn = document.getElementById('pvBtn');
+  var body = document.getElementById('pvBody');
+  var sel = document.getElementById('pvSource');
+  var endpoint = sel ? sel.value : '${defaultEndpoint}';
   btn.disabled = true;
   btn.textContent = '\\u23f3 \\u52a0\\u8f7d\\u4e2d...';
   body.innerHTML = '<div class="preview-loading"><div class="preview-spinner"></div><span>\\u52a0\\u8f7d\\u4e2d...</span></div>';
   fetch(endpoint)
     .then(function(r) { return r.json(); })
     .then(function(data) {
-      var btnEl = document.getElementById('baPreviewBtn');
+      var btnEl = document.getElementById('pvBtn');
       function restore() {
         btnEl.disabled = false;
         btnEl.textContent = '\\ud83d\\udd04 \\u5237\\u65b0\\u968f\\u673a\\u56fe\\u7247';
       }
+      var extra = data.orientation ? ' · ' + data.orientation : '';
       body.innerHTML = '<div class="preview-result">'
-        + '<div class="preview-image-frame" id="baFrame"><img class="preview-image" id="baImg" src="' + data.url + '" alt="BA Random Image"></div>'
-        + '<div class="preview-image-info"><span class="cap">Blue Archive</span> · 随机图片已加载</div>'
+        + '<div class="preview-image-frame" id="pvFrame"><img class="preview-image" id="pvImg" src="' + data.url + '" alt="${caption}"></div>'
+        + '<div class="preview-image-info"><span class="cap">${caption}</span> · 随机图片已加载' + extra + '</div>'
         + '</div>';
-      var img = document.getElementById('baImg');
-      var frame = document.getElementById('baFrame');
+      var img = document.getElementById('pvImg');
+      var frame = document.getElementById('pvFrame');
       img.addEventListener('load', function() {
         frame.className = 'preview-image-frame ' + (img.naturalHeight > img.naturalWidth ? 'is-portrait' : 'is-landscape');
         restore();
@@ -622,8 +633,14 @@ function loadBaPreview() {
       btn.textContent = '\\ud83d\\udd04 \\u5237\\u65b0\\u968f\\u673a\\u56fe\\u7247';
     });
 }
-loadBaPreview();
+loadPreview();
 `
+}
+
+// 时间戳种子说明（BA 官方图 / BA 壁纸 / 二次元随机图通用）
+const SEED_NOTE = `<p style="margin-top:.6rem;color:var(--text-2);font-size:.9rem">时间戳固定图片：<code>t</code> / <code>ts</code> 接受任意字符串，最常用的就是时间戳。同一个值必定返回同一张图，换值即换图，不传则每次随机。想「每天固定一张」就传当天 0 点的秒级时间戳（如 <code>?t=1728000000</code>），跨过当天会自动换图。</p>`;
+
+const baPreviewScript = imagePreviewScript('/ba/json', 'Blue Archive');
 
 export function baDocPage(): string {
   const content = `
@@ -642,7 +659,7 @@ export function baDocPage(): string {
           <tr><td>${badge('GET')}</td><td><code>/ba/random</code></td><td>302 重定向到随机官方 BA 图片</td></tr>
           <tr><td>${badge('GET')}</td><td><code>/ba/json</code></td><td>JSON 格式返回随机官方图片 URL</td></tr>
           <tr><td colspan="3" class="table-group">🖥️ ba随机壁纸（横屏 + 竖屏）</td></tr>
-          <tr><td>${badge('GET')}</td><td><code>/ba/wallpaper</code></td><td>302 重定向到随机 BA 壁纸（横竖混合）</td></tr>
+          <tr><td>${badge('GET')}</td><td><code>/ba/wallpaper</code></td><td>302 重定向到随机 BA 壁纸（自动适配横竖屏）</td></tr>
           <tr><td>${badge('GET')}</td><td><code>/ba/wallpaper/json</code></td><td>JSON 格式返回随机壁纸 URL</td></tr>
         </tbody>
       </table></div>
@@ -653,31 +670,33 @@ export function baDocPage(): string {
       <div class="table-wrap"><table>
         <thead><tr><th>参数</th><th>适用端点</th><th>取值</th><th>说明</th></tr></thead>
         <tbody>
-          <tr><td><code>orientation</code></td><td>壁纸</td><td><code>landscape</code> / <code>portrait</code></td><td>横屏 / 竖屏；不传则横竖随机</td></tr>
+          <tr><td><code>orientation</code></td><td>壁纸</td><td><code>landscape</code> / <code>portrait</code> / <code>auto</code></td><td>强制横屏 / 竖屏；不传即自动适配设备方向</td></tr>
           <tr><td><code>t</code> / <code>ts</code></td><td>全部</td><td>任意字符串（如时间戳）</td><td>种子：同一值固定返回同一张图，缺省则随机</td></tr>
         </tbody>
       </table></div>
-      <p style="margin-top:.6rem;color:var(--text-2);font-size:.9rem">orientation 也支持 <code>horizontal</code>、<code>vertical</code>、<code>h</code>、<code>v</code>、<code>横屏</code>、<code>竖屏</code> 等写法；壁纸不传该参数时横竖混合随机。</p>
+      <p style="margin-top:.6rem;color:var(--text-2);font-size:.9rem">壁纸默认就会自动适配：优先按 Client Hints 视口宽高判断，其次按 User-Agent（手机→竖屏、电脑/平板→横屏）。orientation 也支持 <code>horizontal</code>、<code>vertical</code>、<code>h</code>、<code>v</code>、<code>横屏</code>、<code>竖屏</code>、<code>auto</code> / <code>自动</code> 等写法，显式传 <code>auto</code> 与不传效果相同。</p>
+      ${SEED_NOTE}
     </div>
 
     <div class="section">
       <h2 class="section-title">使用示例</h2>
       ${codeBlock('GET /ba/random', '官方图 · 302 重定向')}
-      ${codeBlock('GET /ba/wallpaper', '壁纸 · 横竖混合随机 302 重定向')}
+      ${codeBlock('GET /ba/wallpaper', '壁纸 · 自动适配横竖屏 302 重定向')}
       ${codeBlock('GET /ba/wallpaper?orientation=landscape', '壁纸 · 仅横屏 302 重定向')}
       ${codeBlock('GET /ba/wallpaper?orientation=portrait', '壁纸 · 仅竖屏 302 重定向')}
-      ${codeBlock('GET /ba/wallpaper/json?orientation=portrait', '壁纸 · 竖屏 JSON 响应')}
+      ${codeBlock('GET /ba/wallpaper?t=1728000000', '壁纸 · 时间戳固定，同值恒为同一张')}
+      ${codeBlock('GET /ba/wallpaper/json', '壁纸 · JSON 响应（同样自动适配）')}
     </div>
 
     <div class="section">
       <h2 class="section-title">响应示例</h2>
-      ${codeBlock('{\n  "code": 200,\n  "message": "success",\n  "url": "https://.../74955ca0-6c54-4fa3-a634-230f5cd2e25a.png"\n}', '/ba/json 响应')}
+      ${codeBlock('{\n  "code": 200,\n  "message": "success",\n  "url": "https://.../74955ca0-6c54-4fa3-a634-230f5cd2e25a.webp"\n}', '/ba/json 响应')}
       ${codeBlock('{\n  "code": 200,\n  "message": "success",\n  "url": "https://.../BA_001_8060x5691.webp",\n  "orientation": "landscape"\n}', '/ba/wallpaper/json 响应')}
     </div>
 
     ${infoBox('详细信息', [
       '官方图：记忆大厅 + 部分剧情场景的随机图片',
-      '壁纸：横屏 1042 张（最高 8060×5691）+ 竖屏 501 张（最高 6600×10327），均为 .webp；默认横竖混合随机，可用 orientation 指定方向',
+      '壁纸：横屏 1042 张（最高 8060×5691）+ 竖屏 501 张（最高 6600×10327），均为 .webp；默认按设备自动适配横竖屏，可用 orientation 强制指定',
     ])}
 
     <div style="margin-top: 1.5rem; display: flex; gap: 1rem; flex-wrap: wrap;">
@@ -689,19 +708,94 @@ export function baDocPage(): string {
       <div class="preview-header">
         <h3><span class="live"></span> 在线预览</h3>
         <div class="preview-controls">
-          <select class="preview-select" id="baSource" onchange="loadBaPreview()">
+          <select class="preview-select" id="pvSource" onchange="loadPreview()">
             <option value="/ba/json">官方图</option>
             <option value="/ba/wallpaper/json">壁纸</option>
           </select>
-          <button class="preview-btn" id="baPreviewBtn" onclick="loadBaPreview()">🔄 刷新随机图片</button>
+          <button class="preview-btn" id="pvBtn" onclick="loadPreview()">🔄 刷新随机图片</button>
         </div>
       </div>
-      <div class="preview-body" id="baPreviewBody">
+      <div class="preview-body" id="pvBody">
         <span class="preview-empty">点击按钮加载随机 BA 图片</span>
       </div>
     </div>
   `
   return page('BA 随机图', 'ba', content, baPreviewScript)
+}
+
+// ─── Anime Random Image Docs ───
+
+const animePreviewScript = imagePreviewScript('/anime/json', '二次元插画');
+
+export function animeDocPage(): string {
+  const content = `
+    <div class="page-header">
+      <a class="back-link" href="/">← 返回首页</a>
+      <h1><span class="h-icon">🌸</span> 二次元随机图 API</h1>
+      <p class="subtitle">精选二次元高清插画随机返回，横竖各 1600 张，自动适配设备方向，支持 302 重定向和 JSON 格式</p>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">端点列表</h2>
+      <div class="table-wrap"><table>
+        <thead><tr><th>方法</th><th>路径</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>${badge('GET')}</td><td><code>/anime/random</code></td><td>302 重定向到随机插画（自动适配横竖屏）</td></tr>
+          <tr><td>${badge('GET')}</td><td><code>/anime/json</code></td><td>JSON 格式返回插画 URL 与实际方向</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">请求参数</h2>
+      <div class="table-wrap"><table>
+        <thead><tr><th>参数</th><th>适用端点</th><th>取值</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td><code>orientation</code></td><td>全部</td><td><code>landscape</code> / <code>portrait</code> / <code>auto</code></td><td>强制横屏 / 竖屏；不传即自动适配设备方向</td></tr>
+          <tr><td><code>t</code> / <code>ts</code></td><td>全部</td><td>任意字符串（如时间戳）</td><td>种子：同一值固定返回同一张图，缺省则随机</td></tr>
+        </tbody>
+      </table></div>
+      <p style="margin-top:.6rem;color:var(--text-2);font-size:.9rem">不传 orientation 就会自动适配：优先按 Client Hints 视口宽高判断，其次按 User-Agent（手机→竖屏、电脑/平板→横屏）。orientation 也支持 <code>horizontal</code>、<code>vertical</code>、<code>h</code>、<code>v</code>、<code>横屏</code>、<code>竖屏</code>、<code>auto</code> / <code>自动</code> 等写法。</p>
+      ${SEED_NOTE}
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">使用示例</h2>
+      ${codeBlock('GET /anime/random', '插画 · 自动适配横竖屏 302 重定向')}
+      ${codeBlock('GET /anime/random?orientation=landscape', '插画 · 仅横屏 302 重定向')}
+      ${codeBlock('GET /anime/random?orientation=portrait', '插画 · 仅竖屏 302 重定向')}
+      ${codeBlock('GET /anime/random?t=1728000000', '插画 · 时间戳固定，同值恒为同一张')}
+      ${codeBlock('GET /anime/json', '插画 · JSON 响应')}
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">响应示例</h2>
+      ${codeBlock('{\n  "code": 200,\n  "message": "success",\n  "url": "https://.../AL_0001_6000x4500.webp",\n  "source": "r2-cdn",\n  "orientation": "landscape"\n}', '/anime/json 响应')}
+    </div>
+
+    ${infoBox('详细信息', [
+      '插画：横屏 1600 张（最大 8060×6480）+ 竖屏 1600 张（最大 6704×9597），均为 .webp 直链',
+      '默认按设备自动适配横竖屏，可用 orientation 强制指定方向；t / ts 传时间戳可固定返回同一张图',
+    ])}
+
+    <div style="margin-top: 1.5rem; display: flex; gap: 1rem; flex-wrap: wrap;">
+      <a class="try-btn" href="/anime/json" target="_blank">插画 JSON →</a>
+      <a class="try-btn ghost" href="/anime/random" target="_blank">直接看一张 →</a>
+    </div>
+
+    <div class="preview-panel">
+      <div class="preview-header">
+        <h3><span class="live"></span> 在线预览</h3>
+        <div class="preview-controls">
+          <button class="preview-btn" id="pvBtn" onclick="loadPreview()">🔄 刷新随机图片</button>
+        </div>
+      </div>
+      <div class="preview-body" id="pvBody">
+        <span class="preview-empty">点击按钮加载随机二次元插画</span>
+      </div>
+    </div>
+  `
+  return page('二次元随机图', 'anime', content, animePreviewScript)
 }
 
 // ─── Hot Search Docs ───

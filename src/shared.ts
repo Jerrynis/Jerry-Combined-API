@@ -114,3 +114,45 @@ export async function withEdgeCache(
   }
   return resp;
 }
+
+// ─── 随机图片池工具（BA / 二次元共用）───
+export function hashCode(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return h >>> 0;
+}
+
+// seed 存在时按 seed 稳定挑图（同一值固定同一张），否则纯随机
+export function pickFromPool(pool: string[], seed?: string): string {
+  return seed
+    ? pool[hashCode(seed) % pool.length]
+    : pool[Math.floor(Math.random() * pool.length)];
+}
+
+export type Orientation = 'landscape' | 'portrait';
+
+export function orientKey(o: string | null): Orientation | null {
+  const v = (o || '').toLowerCase();
+  if (v === 'landscape' || v === 'horizontal' || v === 'h' || v === '\u6a2a\u5c4f') return 'landscape';
+  if (v === 'portrait' || v === 'vertical' || v === 'v' || v === 'p' || v === '\u7ad6\u5c4f') return 'portrait';
+  return null;
+}
+
+// 按请求端信息判断方向：优先 Client Hints 视口，其次 User-Agent 设备类型。
+export function autoOrientation(request: Request): Orientation {
+  const vw = parseInt(request.headers.get('Sec-CH-Viewport-Width') || '', 10);
+  const vh = parseInt(request.headers.get('Sec-CH-Viewport-Height') || '', 10);
+  if (vw > 0 && vh > 0) return vw >= vh ? 'landscape' : 'portrait';
+  const ua = (request.headers.get('User-Agent') || '').toLowerCase();
+  const mobile = /android|iphone|ipod|windows phone|mobile/.test(ua);
+  const tablet = /ipad|tablet|playbook|silk/.test(ua);
+  if (mobile && !tablet) return 'portrait';
+  return 'landscape';
+}
+
+// 显式指定横/竖屏时强制该方向，其余情况（不传、auto、无效值）按设备自动适配
+export function resolveOrientation(orientation: string | null, request: Request): Orientation {
+  const v = (orientation || '').toLowerCase();
+  if (v === 'auto' || v === '\u81ea\u52a8') return autoOrientation(request);
+  return orientKey(orientation) || autoOrientation(request);
+}

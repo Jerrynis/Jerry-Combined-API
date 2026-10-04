@@ -6,6 +6,8 @@
 //   GET /              → 导航页（HTML）
 //   GET /ba            → BA 随机图文档（HTML）
 //   GET /ba/*          → BA 随机图 API
+//   GET /anime         → 二次元随机图文档（HTML）
+//   GET /anime/*       → 二次元随机图 API
 //   GET /bing          → Bing 壁纸文档（HTML）
 //   GET /bing/*        → Bing 壁纸 API
 //   GET /hitokoto      → 一言文档（HTML）
@@ -20,8 +22,9 @@
 //   GET /favicon.ico   → 重定向到图标
 // ============================================================
 
-import { navPage, baDocPage, bingDocPage, hitokotoDocPage, hotsearchDocPage, weatherDocPage, musicDocPage } from './pages'
+import { navPage, baDocPage, animeDocPage, bingDocPage, hitokotoDocPage, hotsearchDocPage, weatherDocPage, musicDocPage } from './pages'
 import { handleBa } from './ba/handler'
+import { handleAnime } from './anime/handler'
 import { handleBing } from './bing/handler'
 import { handleHitokoto } from './hitokoto/handler'
 import { handleHotSearch } from './hotsearch/handler'
@@ -54,7 +57,7 @@ export default {
         service: 'jerry-combined-api',
         version: '1.1.0',
         timestamp: new Date().toISOString(),
-        modules: ['ba', 'bing', 'hitokoto', 'hotsearch', 'weather', 'music'],
+        modules: ['ba', 'anime', 'bing', 'hitokoto', 'hotsearch', 'weather', 'music'],
       })
     }
 
@@ -64,6 +67,9 @@ export default {
     }
     if (path === '/ba') {
       return htmlResponse(baDocPage())
+    }
+    if (path === '/anime') {
+      return htmlResponse(animeDocPage())
     }
     if (path === '/bing') {
       return htmlResponse(bingDocPage())
@@ -84,6 +90,9 @@ export default {
     // ─── API routes ───
     if (path.startsWith('/ba/')) {
       return handleBa(request, url, env, ctx)
+    }
+    if (path.startsWith('/anime/')) {
+      return handleAnime(request, url)
     }
     if (path.startsWith('/bing/')) {
       return handleBing(request, url, env, ctx)
