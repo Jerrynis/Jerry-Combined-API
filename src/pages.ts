@@ -585,7 +585,7 @@ export function navPage(): string {
         <div class="hero-stat"><div class="num">7</div><div class="lbl">模块</div></div>
         <div class="hero-stat"><div class="num">130+</div><div class="lbl">端点</div></div>
         <div class="hero-stat"><div class="num">580+</div><div class="lbl">语录</div></div>
-        <div class="hero-stat"><div class="num">5100+</div><div class="lbl">图片</div></div>
+        <div class="hero-stat"><div class="num">1W+</div><div class="lbl">图片</div></div>
       </div>
     </div>
     <div class="cards-grid">${cardHtml}</div>
